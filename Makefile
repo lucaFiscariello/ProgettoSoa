@@ -15,10 +15,10 @@ create-fs:
 mount-mod:
 	sudo insmod singlefile-FS/singlefilefs.ko
 	sudo insmod Linux-sys_call_table-discoverer-master/the_usctm.ko
+	sudo insmod device-driver/char-dev.ko 
 
 mount-sys:
-	sudo insmod system-call/the_system_call.ko the_syscall_table=$(shell sudo cat /sys/module/the_usctm/parameters/sys_call_table_address)
-	sudo insmod device-driver/char-dev.ko adress_dev_mount=$(shell sudo cat /sys/module/singlefilefs/parameters/adress_dev_mount)
+	sudo insmod system-call/the_system_call.ko the_syscall_table=$(shell sudo cat /sys/module/the_usctm/parameters/sys_call_table_address) adress_dev_mount=$(shell sudo cat /sys/module/singlefilefs/parameters/adress_dev_mount)
 
 mount-fs:
 	mkdir mount
@@ -46,6 +46,14 @@ clean:
 
 	rm singlefile-FS/singlefilemakefs
 
+mount-all:
+	make mount-mod
+	make mount-fs
+	make mount-sys
+
+umount-all:
+	make umount-fs
+	make umount-mod
 
 
 

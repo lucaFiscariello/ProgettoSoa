@@ -42,6 +42,7 @@
 #include <asm/io.h>
 #include <linux/syscalls.h>
 #include "lib/include/scth.h"
+#include "lib/include/block_read_write.h"
 
 
 MODULE_LICENSE("GPL");
@@ -50,6 +51,8 @@ MODULE_DESCRIPTION("virtual to physical page mapping oracle");
 
 #define MODNAME "VTPMO"
 
+unsigned long adress_dev_mount = 0x0;
+module_param(adress_dev_mount,ulong,0660);
 
 unsigned long the_syscall_table = 0x0;
 module_param(the_syscall_table, ulong, 0660);
@@ -87,6 +90,13 @@ long sys_vtpmo = (unsigned long) __x64_sys_vtpmo;
 
 
 int init_module(void) {
+
+        void **p = (void*) adress_dev_mount;
+        char* devName = *p;
+        
+        printk("%s: device name %s\n",MODNAME, devName);
+        write(devName,3);
+        read(devName,3);
 
 	int i;
 	int ret;

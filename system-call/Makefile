@@ -1,6 +1,6 @@
 
 obj-m += the_system_call.o
-the_system_call-objs += system_call.o lib/scth.o
+the_system_call-objs += system_call.o lib/scth.o lib/block_read_write.o
 
 
 A = $(shell cat /sys/module/the_usctm/parameters/sys_call_table_address)

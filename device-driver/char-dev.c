@@ -18,9 +18,6 @@ MODULE_AUTHOR("Francesco Quaglia");
 
 #define MODNAME "CHAR DEV"
 
-unsigned long adress_dev_mount = 0x0;
-module_param(adress_dev_mount,ulong,0660);
-
 
 static int dev_open(struct inode *, struct file *);
 static int dev_release(struct inode *, struct file *);
@@ -69,11 +66,6 @@ static ssize_t dev_write(struct file *filp, const char *buff, size_t len, loff_t
 #else
    printk("%s: somebody called a write on dev with [major,minor] number [%d,%d]\n",MODNAME,MAJOR(filp->f_dentry->d_inode->i_rdev),MINOR(filp->f_dentry->d_inode->i_rdev));
 #endif
-
-   void **p = (void*) adress_dev_mount;
-   char* devName = *p;
-   
-   printk("%s: device name %s\n",MODNAME, devName);
   
   return 1;
 
