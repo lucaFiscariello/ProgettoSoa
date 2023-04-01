@@ -1,6 +1,6 @@
 
 /*  
- *  baseline char device driver - no actual operations 
+ *  baseline char device driver with limitation on minor numbers - no actual operations 
  */
 
 #define EXPORT_SYMTAB
@@ -13,12 +13,13 @@
 #include <linux/tty.h>		/* For the tty declarations */
 #include <linux/version.h>	/* For LINUX_VERSION_CODE */
 
-
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Francesco Quaglia");
 
 #define MODNAME "CHAR DEV"
 
+unsigned long adress_dev_mount = 0x0;
+module_param(adress_dev_mount,ulong,0660);
 
 
 static int dev_open(struct inode *, struct file *);
@@ -31,13 +32,19 @@ static ssize_t dev_write(struct file *, const char *, size_t, loff_t *);
 static int Major;            /* Major number assigned to broadcast device driver */
 
 
+static DEFINE_MUTEX(device_state);
 
 /* the actual driver */
 
 
 static int dev_open(struct inode *inode, struct file *file) {
 
-   printk("%s: device file successfully opened\n",MODNAME);
+// this device file is single instance
+   if (!mutex_trylock(&device_state)) {
+		return -EBUSY;
+   }
+
+   printk("%s: device file successfully opened by thread %d\n",MODNAME,current->pid);
 //device opened by a default nop
    return 0;
 }
@@ -45,25 +52,50 @@ static int dev_open(struct inode *inode, struct file *file) {
 
 static int dev_release(struct inode *inode, struct file *file) {
 
-   printk("%s: device file closed\n",MODNAME);
+   mutex_unlock(&device_state);
+
+   printk("%s: device file closed by thread %d\n",MODNAME,current->pid);
 //device closed by default nop
    return 0;
 
 }
 
 
-
 static ssize_t dev_write(struct file *filp, const char *buff, size_t len, loff_t *off) {
 
-   printk("%s: somebody called a write on broadcast dev with [major,minor] number [%d,%d]\n",MODNAME,MAJOR(filp->f_dentry->d_inode->i_rdev),MINOR(filp->f_dentry->d_inode->i_rdev));
-   return len;
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 0, 0)
+   printk("%s: somebody called a write on dev with [major,minor] number [%d,%d]\n",MODNAME,MAJOR(filp->f_inode->i_rdev),MINOR(filp->f_inode->i_rdev));
+#else
+   printk("%s: somebody called a write on dev with [major,minor] number [%d,%d]\n",MODNAME,MAJOR(filp->f_dentry->d_inode->i_rdev),MINOR(filp->f_dentry->d_inode->i_rdev));
+#endif
+
+   void **p = (void*) adress_dev_mount;
+   char* devName = *p;
+   
+   printk("%s: device name %s\n",MODNAME, devName);
+  
+  return 1;
+
+}
+
+static ssize_t dev_read(struct file *filp, char *buff, size_t len, loff_t *off) {
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 0, 0)
+   printk("%s: somebody called a read on dev with [major,minor] number [%d,%d]\n",MODNAME,MAJOR(filp->f_inode->i_rdev),MINOR(filp->f_inode->i_rdev));
+#else
+   printk("%s: somebody called a read on dev with [major,minor] number [%d,%d]\n",MODNAME,MAJOR(filp->f_dentry->d_inode->i_rdev),MINOR(filp->f_dentry->d_inode->i_rdev));
+#endif
+   
+   
+   return 0;
 
 }
 
 
-
 static struct file_operations fops = {
   .write = dev_write,
+  .read = dev_read,
   .open =  dev_open,
   .release = dev_release
 };
@@ -72,14 +104,17 @@ static struct file_operations fops = {
 
 int init_module(void) {
 
+
 	Major = __register_chrdev(0, 0, 256, DEVICE_NAME, &fops);
+   int ret;
 
 	if (Major < 0) {
-	  printk("Registering noiser device failed\n");
+	  printk("%s: registering device failed\n",MODNAME);
 	  return Major;
 	}
 
 	printk(KERN_INFO "%s: new device registered, it is assigned major number %d\n",MODNAME, Major);
+   
 
 	return 0;
 }

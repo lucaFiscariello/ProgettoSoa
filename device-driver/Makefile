@@ -1,4 +1,4 @@
-obj-m += baseline-char-dev.o
+obj-m += char-dev.o
 
 all:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules 

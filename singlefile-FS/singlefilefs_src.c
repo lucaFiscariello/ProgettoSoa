@@ -11,6 +11,10 @@
 #include "singlefilefs.h"
 
 
+static char* DEV_MOUNT = "NULL";
+unsigned long adress_dev_mount = &DEV_MOUNT;
+module_param(adress_dev_mount,ulong,0660);
+
 
 static struct super_operations singlefilefs_super_ops = {
 };
@@ -84,6 +88,12 @@ int singlefilefs_fill_super(struct super_block *sb, void *data, int silent) {
 
 static void singlefilefs_kill_superblock(struct super_block *s) {
     kill_block_super(s);
+
+    char* dev_name = "NULL";
+
+    DEV_MOUNT = kmalloc(sizeof(char)*strlen(dev_name), GFP_KERNEL);
+    strncpy(DEV_MOUNT,dev_name,strlen(dev_name));
+        
     printk(KERN_INFO "%s: singlefilefs unmount succesful.\n",MOD_NAME);
     return;
 }
@@ -97,8 +107,12 @@ struct dentry *singlefilefs_mount(struct file_system_type *fs_type, int flags, c
 
     if (unlikely(IS_ERR(ret)))
         printk("%s: error mounting onefilefs",MOD_NAME);
-    else
+    else{
         printk("%s: singlefilefs is succesfully mounted on from device %s\n",MOD_NAME,dev_name);
+        DEV_MOUNT = kmalloc(sizeof(char)*strlen(dev_name), GFP_KERNEL);
+        strncpy(DEV_MOUNT,dev_name,strlen(dev_name));
+    }
+
 
     return ret;
 }
@@ -118,7 +132,7 @@ static int singlefilefs_init(void) {
 
     //register filesystem
     ret = register_filesystem(&onefilefs_type);
-    if (likely(ret == 0))
+    if (likely(ret == 0))  
         printk("%s: sucessfully registered singlefilefs\n",MOD_NAME);
     else
         printk("%s: failed to register singlefilefs - error %d", MOD_NAME,ret);
@@ -134,7 +148,7 @@ static void singlefilefs_exit(void) {
     ret = unregister_filesystem(&onefilefs_type);
 
     if (likely(ret == 0))
-        printk("%s: sucessfully unregistered file system driver\n",MOD_NAME);
+       printk("%s: sucessfully unregistered file system driver\n",MOD_NAME);
     else
         printk("%s: failed to unregister singlefilefs driver - error %d", MOD_NAME, ret);
 }

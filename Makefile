@@ -4,7 +4,7 @@ all:
 	gcc system-call/user/user.c -o system-call/user/user
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD)/singlefile-FS modules
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD)/Linux-sys_call_table-discoverer-master modules 
-	make -C /lib/modules/$(shell uname -r)/build M=$(PWD)/major-minor-management modules 
+	make -C /lib/modules/$(shell uname -r)/build M=$(PWD)/device-driver modules 
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD)/system-call modules 
 
 create-fs:
@@ -15,10 +15,10 @@ create-fs:
 mount-mod:
 	sudo insmod singlefile-FS/singlefilefs.ko
 	sudo insmod Linux-sys_call_table-discoverer-master/the_usctm.ko
-	sudo insmod major-minor-management/baseline-char-dev.ko
 
-mount-sc:
-	sudo insmod system-call/the_virtual-to-physical-memory-mapper.ko the_syscall_table=$(shell sudo cat /sys/module/the_usctm/parameters/sys_call_table_address)
+mount-sys:
+	sudo insmod system-call/the_system_call.ko the_syscall_table=$(shell sudo cat /sys/module/the_usctm/parameters/sys_call_table_address)
+	sudo insmod device-driver/char-dev.ko adress_dev_mount=$(shell sudo cat /sys/module/singlefilefs/parameters/adress_dev_mount)
 
 mount-fs:
 	mkdir mount
@@ -35,13 +35,13 @@ umount-fs:
 umount-mod:
 	sudo rmmod singlefilefs
 	sudo rmmod the_usctm
-	sudo rmmod baseline-char-dev
-	sudo rmmod the_virtual-to-physical-memory-mapper
+	sudo rmmod char-dev
+	sudo rmmod the_system_call
 
 clean:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD)/singlefile-FS clean
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD)/Linux-sys_call_table-discoverer-master clean 
-	make -C /lib/modules/$(shell uname -r)/build M=$(PWD)/major-minor-management clean 
+	make -C /lib/modules/$(shell uname -r)/build M=$(PWD)/device-driver clean 
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD)/system-call clean 
 
 	rm singlefile-FS/singlefilemakefs
