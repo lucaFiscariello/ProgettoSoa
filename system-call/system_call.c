@@ -42,8 +42,8 @@
 #include <asm/io.h>
 #include <linux/syscalls.h>
 #include "lib/include/scth.h"
-#include "lib/include/block_read_write.h"
 
+#include "lib/include/block_read_write.h"
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Francesco Quaglia <francesco.quaglia@uniroma2.it>");
@@ -95,8 +95,19 @@ int init_module(void) {
         char* devName = *p;
         
         printk("%s: device name %s\n",MODNAME, devName);
-        write(devName,3);
-        read(devName,3);
+        write_meta_block(devName);
+        read_meta_block(devName);
+        
+        struct block *blockwrite = kmalloc(DIM_BLOCK,GFP_KERNEL);
+        struct block *blockRead = kmalloc(DIM_BLOCK,GFP_KERNEL);
+
+        char* testo = "prova testo";
+        strncpy(blockwrite->data, testo,12);
+        write(devName,3,blockwrite);
+        read(devName,3,blockRead);
+
+        printk("Testo letto: %s",blockRead->data);
+        
 
 	int i;
 	int ret;

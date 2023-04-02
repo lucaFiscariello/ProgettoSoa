@@ -48,12 +48,14 @@ clean:
 
 mount-all:
 	make mount-mod
+	make create-fs
 	make mount-fs
 	make mount-sys
 
 umount-all:
 	make umount-fs
 	make umount-mod
+	make remove-fs
 
 
 
