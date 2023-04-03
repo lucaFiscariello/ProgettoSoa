@@ -21,11 +21,19 @@ struct meta_block_rcu {
    int nextFreeBlock;
    int lastWriteBlock;
    int invalidBlock[800];
+   int write_lock;
+   int blockNumber;
 } ; 
 
-void read(char* devname, int block_to_read,struct block* block);
-void write(char* devname, int block_to_write,struct block* block);
-void read_meta_block(char* devname);
-void write_meta_block(char* devname);
+
+void inizialize_meta_block(void); //Alloca il terzo blocco sul device
+void set_block_device_onMount(char* devname);
+void set_block_device_onUmount(void);
+void flush_device_metablk(void); // Scrive il metablocco sul device
+struct meta_block_rcu* read_ram_metablk(void); // Legge metablocco in ram se presente
+struct meta_block_rcu* read_device_metablk(void); // Legge metablocco dal device e lo salva in ram
+void read(int block_to_read,struct block* block); 
+void write(int block_to_write,struct block* block);
+
 
 #endif

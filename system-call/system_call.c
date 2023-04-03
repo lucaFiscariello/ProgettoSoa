@@ -43,7 +43,7 @@
 #include <linux/syscalls.h>
 #include "lib/include/scth.h"
 
-#include "lib/include/block_read_write.h"
+#include "lib/include/rcu.h"
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Francesco Quaglia <francesco.quaglia@uniroma2.it>");
@@ -95,6 +95,8 @@ int init_module(void) {
         char* devName = *p;
         
         printk("%s: device name %s\n",MODNAME, devName);
+
+        /*
         write_meta_block(devName);
         read_meta_block(devName);
         
@@ -107,7 +109,37 @@ int init_module(void) {
         read(devName,3,blockRead);
 
         printk("Testo letto: %s",blockRead->data);
-        
+        */
+
+
+        set_block_device_onMount(devName);
+        inizialize_meta_block();       
+
+        struct block *blockwrite = kmalloc(DIM_BLOCK,GFP_KERNEL);
+        struct block *blockRead = kmalloc(DIM_BLOCK,GFP_KERNEL);
+        struct block *blockRead2 = kmalloc(DIM_BLOCK,GFP_KERNEL);
+
+        int num_block_read;
+
+        char* testo = "prova testo1";
+        char* testo2 = "prova testo2";
+
+        strncpy(blockwrite->data, testo,12);
+        num_block_read= write_rcu(blockwrite);
+        read_block_rcu(num_block_read,blockRead);
+
+        strncpy(blockwrite->data, testo2,12);
+        num_block_read= write_rcu(blockwrite);
+        read_block_rcu(num_block_read,blockRead2);
+
+        struct meta_block_rcu* meta_block_rcu;
+        meta_block_rcu = read_ram_metablk();
+
+        printk("Testo letto1: %s",blockRead->data);
+        printk("Testo letto2: %s",blockRead2->data);
+        printk("counter: %d",meta_block_rcu->arrayEpochCounter[meta_block_rcu->epoch]);
+        printk("lock: %d",meta_block_rcu->write_lock);
+
 
 	int i;
 	int ret;
