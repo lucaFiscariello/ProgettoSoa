@@ -124,12 +124,10 @@ int init_module(void) {
         char* testo = "prova testo1";
         char* testo2 = "prova testo2";
 
-        strncpy(blockwrite->data, testo,12);
-        num_block_read= write_rcu(blockwrite);
+        num_block_read= write_rcu(testo);
         read_block_rcu(num_block_read,blockRead);
 
-        strncpy(blockwrite->data, testo2,12);
-        num_block_read= write_rcu(blockwrite);
+        num_block_read= write_rcu(testo2);
         read_block_rcu(num_block_read,blockRead2);
 
         struct meta_block_rcu* meta_block_rcu;
