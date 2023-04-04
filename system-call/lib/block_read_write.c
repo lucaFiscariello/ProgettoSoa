@@ -31,6 +31,7 @@ void inizialize_meta_block(){
         meta_block_rcu = kmalloc(sizeof(struct meta_block_rcu),GFP_KERNEL);
         meta_block_rcu->lastWriteBlock = POS_META_BLOCK;
         meta_block_rcu->nextFreeBlock = POS_META_BLOCK;
+        meta_block_rcu->firstBlock = POS_META_BLOCK+1;
         meta_block_rcu->blocksNumber = blocks_number;
         meta_block_rcu->blocksNumber = 0;
         meta_block_rcu->headInvalidBlock = head;
@@ -138,5 +139,29 @@ void write(int block_to_write,struct block* block){
     brelse(bh);
 
 }
+
+void write_only_metadata(int block_to_write,struct block* block){
+     struct buffer_head *bh = NULL;
+    bh = (struct buffer_head *)sb_bread(block_device->bd_super, block_to_write);
+      
+    if (bh->b_data != NULL){
+        memcpy( bh->b_data,block, DIM_META_DATA);         
+    }
+
+    brelse(bh);
+}
+
+void read_only_metadata(int block_to_read,struct block* block){
+    struct buffer_head *bh = NULL;
+    bh = (struct buffer_head *)sb_bread(block_device->bd_super, block_to_read);
+      
+    if (bh->b_data != NULL){  
+        memcpy( block,bh->b_data, DIM_META_DATA);   
+    }
+
+    brelse(bh);
+}
+
+
 
 

@@ -123,6 +123,9 @@ int init_module(void) {
 
         char* testo = "prova testo1";
         char* testo2 = "prova testo2";
+        char* testo3 = "prova testo3";
+        char* testo4 = "prova testo4";
+        char* testo5 = "prova testo5";
 
         num_block_read= write_rcu(testo);
         read_block_rcu(num_block_read,blockRead);
@@ -130,6 +133,10 @@ int init_module(void) {
         num_block_read= write_rcu(testo2);
         read_block_rcu(num_block_read,blockRead2);
 
+        write_rcu(testo3);
+        write_rcu(testo4);
+        write_rcu(testo5);
+        
         struct meta_block_rcu* meta_block_rcu;
         meta_block_rcu = read_ram_metablk();
 
@@ -137,6 +144,8 @@ int init_module(void) {
         printk("Testo letto2: %s",blockRead2->data);
         printk("counter: %d",meta_block_rcu->arrayEpochCounter[meta_block_rcu->epoch]);
         printk("lock: %d",meta_block_rcu->write_lock);
+
+        read_all_block_rcu(NULL);
 
 
 	int i;

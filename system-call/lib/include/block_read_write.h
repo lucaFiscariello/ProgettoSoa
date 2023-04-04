@@ -3,15 +3,16 @@
 
 #define ERAS 3
 #define POS_META_BLOCK 2
-#define DIM_DATA_BLOCK 4096 - ERAS*4*3
+#define DIM_META_DATA 12
+#define DIM_DATA_BLOCK 4096 - DIM_META_DATA
 #define DIM_BLOCK 4096
 #define MAX_INVALID_BLOCK 800
 
 
 struct block {
-   int arrayValidBlockEpoch[ERAS];
-   int arrayNextEpoch[ERAS];
-   int arrayPredEpoch[ERAS];
+   int validity;
+   int next_block;
+   int pred_block;
    char data[DIM_DATA_BLOCK];
 };
 
@@ -43,6 +44,8 @@ struct meta_block_rcu* read_ram_metablk(void); // Legge metablocco in ram se pre
 struct meta_block_rcu* read_device_metablk(void); // Legge metablocco dal device e lo salva in ram
 void read(int block_to_read,struct block* block); 
 void write(int block_to_write,struct block* block);
+void write_only_metadata(int block_to_write,struct block* block);
+void read_only_metadata(int block_to_read,struct block* block);
 
 
 #endif
