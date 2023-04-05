@@ -126,6 +126,7 @@ int init_module(void) {
         char* testo3 = "prova testo3";
         char* testo4 = "prova testo4";
         char* testo5 = "prova testo5";
+        char* testo6 = "prova testo6";
 
         num_block_read= write_rcu(testo);
         read_block_rcu(num_block_read,blockRead);
@@ -144,6 +145,11 @@ int init_module(void) {
         printk("Testo letto2: %s",blockRead2->data);
 
         read_all_block_rcu(NULL);
+        invalidate_rcu(7);
+        read_all_block_rcu(NULL);
+        write_rcu(testo6);
+        read_all_block_rcu(NULL);
+
 
 
 	int i;

@@ -116,6 +116,9 @@ int get_next_free_block(){
 
 void read( int block_to_read,struct block* block){
 
+    if(block_to_read == -1)
+        return;
+
     struct buffer_head *bh = NULL;
     void* temp;
     bh = (struct buffer_head *)sb_bread(block_device->bd_super, block_to_read);
@@ -177,6 +180,9 @@ void read_all_block(char* data){
 
 void write(int block_to_write,struct block* block){
 
+    if(block_to_write == -1)
+        return;
+
     struct buffer_head *bh = NULL;
     void* temp;
     bh = (struct buffer_head *)sb_bread(block_device->bd_super, block_to_write);
@@ -193,4 +199,7 @@ void write(int block_to_write,struct block* block){
     brelse(bh);
 
 }
+
+
+
 

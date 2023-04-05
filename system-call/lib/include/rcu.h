@@ -14,6 +14,6 @@
 void read_block_rcu(int block_to_read,struct block* block);
 void read_all_block_rcu(char* block_data);
 int write_rcu(char* block_data);
-//void invalidate_rcu(int block_to_invalidate);
+void invalidate_rcu(int block_to_invalidate);
 
 #endif
