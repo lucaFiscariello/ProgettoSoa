@@ -142,8 +142,6 @@ int init_module(void) {
 
         printk("Testo letto1: %s",blockRead->data);
         printk("Testo letto2: %s",blockRead2->data);
-        printk("counter: %d",meta_block_rcu->arrayEpochCounter[meta_block_rcu->epoch]);
-        printk("lock: %d",meta_block_rcu->write_lock);
 
         read_all_block_rcu(NULL);
 

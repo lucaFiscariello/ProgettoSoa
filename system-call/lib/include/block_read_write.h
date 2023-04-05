@@ -23,8 +23,6 @@ struct invalid_block {
 
 struct meta_block_rcu {
    int firstBlock;
-   int epoch;
-   int arrayEpochCounter[ERAS];
    int nextFreeBlock;
    int lastWriteBlock;
    int invalidBlocks[MAX_INVALID_BLOCK];
@@ -43,9 +41,9 @@ int get_next_free_block(void);
 struct meta_block_rcu* read_ram_metablk(void); // Legge metablocco in ram se presente
 struct meta_block_rcu* read_device_metablk(void); // Legge metablocco dal device e lo salva in ram
 void read(int block_to_read,struct block* block); 
+void read_all_block(char* data); 
 void write(int block_to_write,struct block* block);
-void write_only_metadata(int block_to_write,struct block* block);
-void read_only_metadata(int block_to_read,struct block* block);
+
 
 
 #endif

@@ -117,12 +117,60 @@ int get_next_free_block(){
 void read( int block_to_read,struct block* block){
 
     struct buffer_head *bh = NULL;
+    void* temp;
     bh = (struct buffer_head *)sb_bread(block_device->bd_super, block_to_read);
       
-    if (bh->b_data != NULL){  
-        memcpy( block,bh->b_data, DIM_BLOCK);   
+    if (bh->b_data != NULL){ 
+
+        rcu_read_lock();
+        temp = (void*) rcu_dereference(bh->b_data);
+        memcpy( block,temp, DIM_BLOCK);
+        rcu_read_unlock(); 
+
     }
 
+    brelse(bh);
+
+}
+
+void read_all_block(char* data){
+
+    struct buffer_head *bh = NULL;
+    struct block *temp_block;
+    int temp_block_to_read;
+    void* temp;
+
+    temp_block_to_read = meta_block_rcu->firstBlock;
+    temp_block = kmalloc(DIM_BLOCK, GFP_KERNEL);
+
+    rcu_read_lock();
+
+    bh = (struct buffer_head *)sb_bread(block_device->bd_super, temp_block_to_read);
+    temp = (void*) rcu_dereference(bh->b_data);
+    
+
+    if (temp != NULL){ 
+
+        memcpy( temp_block,temp, DIM_BLOCK);
+        printk("messaggio: %s", &temp_block->data);
+        
+        while (temp_block->next_block != -1){
+
+            temp_block_to_read = temp_block->next_block;
+
+            bh = (struct buffer_head *)sb_bread(block_device->bd_super, temp_block_to_read);
+            temp = (void*) rcu_dereference(bh->b_data);
+
+            if (temp != NULL){ 
+                memcpy( temp_block,temp, DIM_BLOCK);
+                printk("messaggio: %s", &temp_block->data);
+            }
+            
+        }
+
+    }
+
+    rcu_read_unlock(); 
     brelse(bh);
 
 }
@@ -130,38 +178,19 @@ void read( int block_to_read,struct block* block){
 void write(int block_to_write,struct block* block){
 
     struct buffer_head *bh = NULL;
+    void* temp;
     bh = (struct buffer_head *)sb_bread(block_device->bd_super, block_to_write);
       
     if (bh->b_data != NULL){
-        memcpy( bh->b_data,block, DIM_BLOCK);         
+
+        temp = bh->b_data;
+        rcu_assign_pointer(bh->b_data,(void *) block);
+        synchronize_rcu();
+        kfree(temp);
+
     }
 
     brelse(bh);
 
 }
-
-void write_only_metadata(int block_to_write,struct block* block){
-     struct buffer_head *bh = NULL;
-    bh = (struct buffer_head *)sb_bread(block_device->bd_super, block_to_write);
-      
-    if (bh->b_data != NULL){
-        memcpy( bh->b_data,block, DIM_META_DATA);         
-    }
-
-    brelse(bh);
-}
-
-void read_only_metadata(int block_to_read,struct block* block){
-    struct buffer_head *bh = NULL;
-    bh = (struct buffer_head *)sb_bread(block_device->bd_super, block_to_read);
-      
-    if (bh->b_data != NULL){  
-        memcpy( block,bh->b_data, DIM_META_DATA);   
-    }
-
-    brelse(bh);
-}
-
-
-
 

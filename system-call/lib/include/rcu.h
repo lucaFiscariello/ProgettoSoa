@@ -10,8 +10,6 @@
 #define BLOCK_ERROR -1
 #define lock(lock_element) (__sync_val_compare_and_swap(&lock_element,ZERO_WRITER,LOCK_WRITER))
 #define unlock(lock_element) (lock_element=ZERO_WRITER)
-#define increment_counter(counter) (__sync_fetch_and_add(&counter,1))
-#define decrement_counter(counter) (__sync_fetch_and_add(&counter,-1))
 
 void read_block_rcu(int block_to_read,struct block* block);
 void read_all_block_rcu(char* block_data);
