@@ -6,6 +6,11 @@
 void read_block_rcu(int block_to_read, struct block *block)
 {
     read(block_to_read, block);
+
+    if(block->validity == INVALID_BLOCK){
+        block = NULL;
+        return;
+    }
 }
 
 void read_all_block_rcu(char *block_data)
@@ -14,12 +19,8 @@ void read_all_block_rcu(char *block_data)
 }
 
 /* TODO:
-    testare il get_free_block
-    la lettura non deve avvenire sui nodi non validi. Solo lo scrittore può farla.
     modifica i return delle funzioni
-    togliere strcopy
     mettere controllo su while : all o niente
-    // per invalidate controllo dimensione massima, modificare if in cascata
 */
 int write_rcu(char *block_data)
 {
@@ -63,6 +64,7 @@ int write_rcu(char *block_data)
 }
 
 void invalidate_rcu(int block_to_invalidate){
+
     struct meta_block_rcu *meta_block_rcu;
     struct invalid_block * new_invalid_block;
     struct block *block;
@@ -77,6 +79,9 @@ void invalidate_rcu(int block_to_invalidate){
     next_block = kmalloc(DIM_BLOCK, GFP_KERNEL);
     new_invalid_block = kmalloc(sizeof(struct invalid_block),GFP_KERNEL);
 
+    if(block_to_invalidate<0 || block_to_invalidate>meta_block_rcu->blocksNumber)
+        return;
+
     lock(meta_block_rcu->write_lock);
 
     read(block_to_invalidate,block);
@@ -88,30 +93,12 @@ void invalidate_rcu(int block_to_invalidate){
 
     block->validity = INVALID_BLOCK;
 
-    if(pred_block !=NULL)
-        pred_block->next_block = block_update_next;
-    
-    if(next_block !=NULL)
-        next_block->pred_block = block_update_pred;
-
-    if(block_to_invalidate== meta_block_rcu->firstBlock){
-
-        if(block_update_next == BLOCK_ERROR ){
-            meta_block_rcu->firstBlock = POS_META_BLOCK+1;
-        }else{
-            meta_block_rcu->firstBlock = block_update_next;
-        }
-
-    }
-
-    else if (block_to_invalidate == meta_block_rcu->lastWriteBlock){
-      
-        meta_block_rcu->lastWriteBlock = block_update_pred;
-
-    }
+    update_pointer_onInvalidate(pred_block,block_update_next,next_block,block_update_pred,meta_block_rcu);
 
     new_invalid_block->block = block_to_invalidate;
+    new_invalid_block->next = meta_block_rcu->headInvalidBlock;
     meta_block_rcu->headInvalidBlock = new_invalid_block;
+    meta_block_rcu->invalidBlocksNumber++;
 
     write(block_to_invalidate, block);
     write(block_update_next,next_block);

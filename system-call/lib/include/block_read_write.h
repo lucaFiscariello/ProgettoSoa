@@ -8,6 +8,10 @@
 #define DIM_BLOCK 4096
 #define MAX_INVALID_BLOCK 800
 
+#define concat_data(data,temp_block)\
+   strcat(data,temp_block->data);\
+   strcat(data,"\n");\
+
 
 struct block {
    int validity;

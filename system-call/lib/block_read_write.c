@@ -33,7 +33,7 @@ void inizialize_meta_block(){
         meta_block_rcu->nextFreeBlock = POS_META_BLOCK;
         meta_block_rcu->firstBlock = POS_META_BLOCK+1;
         meta_block_rcu->blocksNumber = blocks_number;
-        meta_block_rcu->blocksNumber = 0;
+        meta_block_rcu->invalidBlocksNumber = 0;
         meta_block_rcu->headInvalidBlock = head;
 
         memcpy( bh->b_data,meta_block_rcu, sizeof(struct meta_block_rcu));        
@@ -53,8 +53,12 @@ void flush_device_metablk(){
       
     if (bh->b_data != NULL){
 
-        while(head->next != NULL && head->block != -1 )
+        while(head->next != NULL && head->block != -1 ){
+            
             meta_block_rcu->invalidBlocks[pos++] = head->block;
+            head = head->next;
+
+        }
 
         memcpy( bh->b_data,meta_block_rcu, sizeof(struct meta_block_rcu));        
     }
@@ -116,7 +120,7 @@ int get_next_free_block(){
 
 void read( int block_to_read,struct block* block){
 
-    if(block_to_read == -1)
+    if(block_to_read <0 || block_to_read >= meta_block_rcu->blocksNumber)
         return;
 
     struct buffer_head *bh = NULL;
@@ -155,7 +159,7 @@ void read_all_block(char* data){
     if (temp != NULL){ 
 
         memcpy( temp_block,temp, DIM_BLOCK);
-        printk("messaggio: %s", &temp_block->data);
+        concat_data(data,temp_block);
         
         while (temp_block->next_block != -1){
 
@@ -166,7 +170,7 @@ void read_all_block(char* data){
 
             if (temp != NULL){ 
                 memcpy( temp_block,temp, DIM_BLOCK);
-                printk("messaggio: %s", &temp_block->data);
+                concat_data(data,temp_block);
             }
             
         }
@@ -180,7 +184,7 @@ void read_all_block(char* data){
 
 void write(int block_to_write,struct block* block){
 
-    if(block_to_write == -1)
+    if(block_to_write < 0 || block_to_write >= meta_block_rcu->blocksNumber)
         return;
 
     struct buffer_head *bh = NULL;

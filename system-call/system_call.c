@@ -95,23 +95,6 @@ int init_module(void) {
         char* devName = *p;
         
         printk("%s: device name %s\n",MODNAME, devName);
-
-        /*
-        write_meta_block(devName);
-        read_meta_block(devName);
-        
-        struct block *blockwrite = kmalloc(DIM_BLOCK,GFP_KERNEL);
-        struct block *blockRead = kmalloc(DIM_BLOCK,GFP_KERNEL);
-
-        char* testo = "prova testo";
-        strncpy(blockwrite->data, testo,12);
-        write(devName,3,blockwrite);
-        read(devName,3,blockRead);
-
-        printk("Testo letto: %s",blockRead->data);
-        */
-
-
         set_block_device_onMount(devName);
         inizialize_meta_block();       
 
@@ -127,28 +110,23 @@ int init_module(void) {
         char* testo4 = "prova testo4";
         char* testo5 = "prova testo5";
         char* testo6 = "prova testo6";
+        char* all;
+        all = kmalloc(DIM_BLOCK,GFP_KERNEL);
 
-        num_block_read= write_rcu(testo);
-        read_block_rcu(num_block_read,blockRead);
+        write_rcu(testo);
 
-        num_block_read= write_rcu(testo2);
-        read_block_rcu(num_block_read,blockRead2);
+        num_block_read = write_rcu(testo2);
+        invalidate_rcu(num_block_read);
 
-        write_rcu(testo3);
+        num_block_read = write_rcu(testo3);
+        invalidate_rcu(num_block_read);
+
         write_rcu(testo4);
         write_rcu(testo5);
-        
-        struct meta_block_rcu* meta_block_rcu;
-        meta_block_rcu = read_ram_metablk();
-
-        printk("Testo letto1: %s",blockRead->data);
-        printk("Testo letto2: %s",blockRead2->data);
-
-        read_all_block_rcu(NULL);
-        invalidate_rcu(7);
-        read_all_block_rcu(NULL);
         write_rcu(testo6);
-        read_all_block_rcu(NULL);
+
+        read_all_block_rcu(all);
+        printk("tutti i dati: %s", all);
 
 
 
