@@ -54,9 +54,14 @@ struct onefilefs_sb_info {
 
 // file.c
 extern const struct inode_operations onefilefs_inode_ops;
-extern const struct file_operations onefilefs_file_operations; 
+extern const struct file_operations onefilefs_file_operations;
 
 // dir.c
 extern const struct file_operations onefilefs_dir_operations;
+
+
+int singlefilefs_init(void);
+void singlefilefs_exit(void);
+char* getDevMount(void);
 
 #endif

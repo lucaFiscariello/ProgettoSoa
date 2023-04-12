@@ -8,7 +8,7 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 
-#include "singlefilefs.h"
+#include "lib/include/singlefilefs.h"
 
 
 ssize_t onefilefs_read(struct file * filp, char __user * buf, size_t len, loff_t * off) {

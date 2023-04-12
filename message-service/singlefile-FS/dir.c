@@ -8,7 +8,7 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 
-#include "singlefilefs.h"
+#include "lib/include/singlefilefs.h"
 
 //this iterate function just returns 3 entries: . and .. and then the name of the unique file of the file system
 static int onefilefs_iterate(struct file *file, struct dir_context* ctx) {

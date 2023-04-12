@@ -1,28 +1,23 @@
-
 all:
-	gcc singlefile-FS/singlefilemakefs.c -o singlefile-FS/singlefilemakefs
-	gcc system-call/user/user.c -o system-call/user/user
-	make -C /lib/modules/$(shell uname -r)/build M=$(PWD)/singlefile-FS modules
+	gcc message-service/singlefile-FS/singlefilemakefs.c -o message-service/singlefile-FS/singlefilemakefs
+	gcc message-service/system-call/user/user.c -o message-service/system-call/user/user
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD)/Linux-sys_call_table-discoverer-master modules 
-	make -C /lib/modules/$(shell uname -r)/build M=$(PWD)/device-driver modules 
-	make -C /lib/modules/$(shell uname -r)/build M=$(PWD)/system-call modules 
+	make -C /lib/modules/$(shell uname -r)/build M=$(PWD)/message-service modules 
 
 create-fs:
-	dd bs=4096 count=100 if=/dev/zero of=singlefile-FS/image
-	./singlefile-FS/singlefilemakefs singlefile-FS/image
+	dd bs=4096 count=100 if=/dev/zero of=message-service/singlefile-FS/image
+	./message-service/singlefile-FS/singlefilemakefs message-service/singlefile-FS/image
 	sudo mknod /dev/myDev c 237 0
 
 mount-mod:
-	sudo insmod singlefile-FS/singlefilefs.ko
 	sudo insmod Linux-sys_call_table-discoverer-master/the_usctm.ko
-	sudo insmod device-driver/char-dev.ko 
 
 mount-sys:
-	sudo insmod system-call/the_system_call.ko the_syscall_table=$(shell sudo cat /sys/module/the_usctm/parameters/sys_call_table_address) adress_dev_mount=$(shell sudo cat /sys/module/singlefilefs/parameters/adress_dev_mount)
+	sudo insmod message-service/the-message-service.ko the_syscall_table=$(shell sudo cat /sys/module/the_usctm/parameters/sys_call_table_address)
 
 mount-fs:
 	mkdir mount
-	sudo mount -o loop -t singlefilefs singlefile-FS/image ./mount/
+	sudo mount -o loop -t singlefilefs message-service/singlefile-FS/image ./mount/
 
 
 remove-fs:
@@ -33,29 +28,28 @@ umount-fs:
 	rm -r ./mount/
 
 umount-mod:
-	sudo rmmod singlefilefs
 	sudo rmmod the_usctm
-	sudo rmmod char-dev
-	sudo rmmod the_system_call
+	sudo rmmod the-message-service
 
 clean:
-	make -C /lib/modules/$(shell uname -r)/build M=$(PWD)/singlefile-FS clean
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD)/Linux-sys_call_table-discoverer-master clean 
-	make -C /lib/modules/$(shell uname -r)/build M=$(PWD)/device-driver clean 
-	make -C /lib/modules/$(shell uname -r)/build M=$(PWD)/system-call clean 
+	make -C /lib/modules/$(shell uname -r)/build M=$(PWD)/message-service clean 
 
-	rm singlefile-FS/singlefilemakefs
+	rm message-service/singlefile-FS/singlefilemakefs
 
 mount-all:
-	make mount-mod
 	make create-fs
-	make mount-fs
+	make mount-mod
 	make mount-sys
+	make mount-fs
+
 
 umount-all:
+	make remove-fs
 	make umount-fs
 	make umount-mod
-	make remove-fs
+	
+	
 
 
 

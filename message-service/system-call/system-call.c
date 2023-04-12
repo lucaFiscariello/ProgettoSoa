@@ -41,18 +41,19 @@
 #include <asm/apic.h>
 #include <asm/io.h>
 #include <linux/syscalls.h>
-#include "lib/include/scth.h"
 
-#include "lib/include/rcu.h"
+#include "lib/include/scth.h"
+#include "../core-RCU/lib/include/rcu.h"
+#include "../singlefile-FS/lib/include/singlefilefs.h"
+#include "../device-driver/lib/include/char-dev.h"
+
+#include "lib/include/system-call.h"
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Francesco Quaglia <francesco.quaglia@uniroma2.it>");
 MODULE_DESCRIPTION("virtual to physical page mapping oracle");
 
 #define MODNAME "VTPMO"
-
-unsigned long adress_dev_mount = 0x0;
-module_param(adress_dev_mount,ulong,0660);
 
 unsigned long the_syscall_table = 0x0;
 module_param(the_syscall_table, ulong, 0660);
@@ -78,21 +79,7 @@ asmlinkage long sys_vtpmo(unsigned long vaddr){
 
 	printk("%s: Sono stato invocato!",MODNAME);
 
-	return 0;
-	
-}
-
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,17,0)
-long sys_vtpmo = (unsigned long) __x64_sys_vtpmo;       
-#else
-#endif
-
-
-int init_module(void) {
-
-        void **p = (void*) adress_dev_mount;
-        char* devName = *p;
+        char* devName = getDevMount();
         
         printk("%s: device name %s\n",MODNAME, devName);
         set_block_device_onMount(devName);
@@ -130,8 +117,24 @@ int init_module(void) {
 
 
 
+	return 0;
+	
+}
+
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,17,0)
+long sys_vtpmo = (unsigned long) __x64_sys_vtpmo;       
+#else
+#endif
+
+
+int init_system_call(void) {
+
 	int i;
 	int ret;
+
+        printk("inizializzo modulo!");
+
 
 	AUDIT{
 		printk("%s: vtpmo received sys_call_table address %px\n",MODNAME,(void*)the_syscall_table);
@@ -161,7 +164,7 @@ int init_module(void) {
 
 }
 
-void cleanup_module(void) {
+void cleanup_system_calls(void) {
 
         int i;
                 
@@ -173,5 +176,8 @@ void cleanup_module(void) {
         }
 	protect_memory();
         printk("%s: sys-call table restored to its original content\n",MODNAME);
+
         
 }
+
+

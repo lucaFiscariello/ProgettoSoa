@@ -8,13 +8,10 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 
-#include "singlefilefs.h"
+#include "lib/include/singlefilefs.h"
 
 
-static char* DEV_MOUNT = "NULL";
-unsigned long adress_dev_mount = &DEV_MOUNT;
-module_param(adress_dev_mount,ulong,0660);
-
+char* DEV_MOUNT = "NULL";
 
 static struct super_operations singlefilefs_super_ops = {
 };
@@ -23,6 +20,9 @@ static struct super_operations singlefilefs_super_ops = {
 static struct dentry_operations singlefilefs_dentry_ops = {
 };
 
+char* getDevMount(void){
+    return DEV_MOUNT;
+}
 
 
 int singlefilefs_fill_super(struct super_block *sb, void *data, int silent) {   
@@ -126,7 +126,7 @@ static struct file_system_type onefilefs_type = {
 };
 
 
-static int singlefilefs_init(void) {
+int singlefilefs_init(void) {
 
     int ret;
 
@@ -140,7 +140,7 @@ static int singlefilefs_init(void) {
     return ret;
 }
 
-static void singlefilefs_exit(void) {
+void singlefilefs_exit(void) {
 
     int ret;
 
@@ -153,9 +153,4 @@ static void singlefilefs_exit(void) {
         printk("%s: failed to unregister singlefilefs driver - error %d", MOD_NAME, ret);
 }
 
-module_init(singlefilefs_init);
-module_exit(singlefilefs_exit);
 
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Francesco QUaglia <francesco.quaglia@uniroma2.it>");
-MODULE_DESCRIPTION("SINGLE-FILE-FS");
