@@ -1,5 +1,5 @@
-#include "include/rcu.h"
-#include "include/block_read_write.h"
+#include "lib/include/rcu.h"
+#include "lib/include/block_read_write.h"
 #include <linux/module.h>
 #include <linux/slab.h>
 

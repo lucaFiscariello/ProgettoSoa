@@ -2,7 +2,7 @@
 #include <linux/buffer_head.h>
 #include <linux/blkdev.h>
 #include <linux/string.h>
-#include "include/block_read_write.h"
+#include "lib/include/block_read_write.h"
 
 
 static int blocks_number = 100;

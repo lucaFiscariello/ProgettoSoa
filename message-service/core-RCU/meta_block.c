@@ -3,7 +3,7 @@
 #include <linux/blkdev.h>
 #include <linux/string.h>
 
-#include "include/meta_block.h"
+#include "lib/include/meta_block.h"
 
 static struct block_device *block_device = NULL;
 static struct meta_block_rcu *meta_block_rcu = NULL;
