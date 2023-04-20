@@ -2,6 +2,8 @@
 #define META
 
 #include <linux/blkdev.h>
+#include "rcu.h"
+
 
 #define MAX_INVALID_BLOCK 800
 #define POS_META_BLOCK 2

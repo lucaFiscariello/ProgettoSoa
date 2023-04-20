@@ -6,6 +6,7 @@
 #define EXPORT_SYMTAB
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/string.h>
 #include <linux/init.h>
 #include <linux/fs.h>
 #include <linux/sched.h>	
@@ -14,6 +15,7 @@
 #include <linux/version.h>	/* For LINUX_VERSION_CODE */
 
 #include "lib/include/char-dev.h"
+#include "../core-RCU/lib/include/rcu.h"
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Francesco Quaglia");
@@ -69,7 +71,13 @@ static ssize_t dev_write(struct file *filp, const char *buff, size_t len, loff_t
    printk("%s: somebody called a write on dev with [major,minor] number [%d,%d]\n",MODNAME,MAJOR(filp->f_dentry->d_inode->i_rdev),MINOR(filp->f_dentry->d_inode->i_rdev));
 #endif
   
-  return 1;
+   char* kernel_buffer = kmalloc(len,GFP_KERNEL);
+   copy_from_user(kernel_buffer, buff, len);
+
+   write_rcu(kernel_buffer);
+
+
+  return len;
 
 }
 
@@ -81,8 +89,10 @@ static ssize_t dev_read(struct file *filp, char *buff, size_t len, loff_t *off) 
    printk("%s: somebody called a read on dev with [major,minor] number [%d,%d]\n",MODNAME,MAJOR(filp->f_dentry->d_inode->i_rdev),MINOR(filp->f_dentry->d_inode->i_rdev));
 #endif
    
+   printk("offset: %d",len);
+   read_all_block(buff);
    
-   return 0;
+   return len;
 
 }
 

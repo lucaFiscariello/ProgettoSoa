@@ -24,6 +24,7 @@ void read_all_block_rcu(char *block_data)
 */
 int write_rcu(char *block_data)
 {
+
     struct meta_block_rcu *meta_block_rcu;
     struct block *block;
     struct block *pred_block;
@@ -32,17 +33,17 @@ int write_rcu(char *block_data)
 
     meta_block_rcu = read_ram_metablk();
     block_to_write = get_next_free_block();
+
     block = kmalloc(DIM_BLOCK, GFP_KERNEL);
     pred_block = kmalloc(DIM_BLOCK, GFP_KERNEL);
 
     if (block_to_write == BLOCK_ERROR)
     {
         printk("Nessun blocco disponibile!");
-        return -1;
+        return BLOCK_ERROR;
     }
 
     block_to_update = meta_block_rcu->lastWriteBlock;
-
     read(block_to_write, block);
     read(block_to_update, pred_block);
 
@@ -55,6 +56,7 @@ int write_rcu(char *block_data)
     meta_block_rcu->lastWriteBlock = block_to_write;
 
     strncpy(block->data, block_data, DIM_DATA_BLOCK);
+
     write(block_to_write, block);
     write(block_to_update, pred_block);
 

@@ -9,6 +9,7 @@
 #include <linux/string.h>
 
 #include "lib/include/singlefilefs.h"
+#include "../core-RCU/lib/include/meta_block.h"
 
 
 char* DEV_MOUNT = "NULL";
@@ -19,10 +20,6 @@ static struct super_operations singlefilefs_super_ops = {
 
 static struct dentry_operations singlefilefs_dentry_ops = {
 };
-
-char* getDevMount(void){
-    return DEV_MOUNT;
-}
 
 
 int singlefilefs_fill_super(struct super_block *sb, void *data, int silent) {   
@@ -83,16 +80,13 @@ int singlefilefs_fill_super(struct super_block *sb, void *data, int silent) {
     //unlock the inode to make it usable
     unlock_new_inode(root_inode);
 
+
     return 0;
 }
 
 static void singlefilefs_kill_superblock(struct super_block *s) {
     kill_block_super(s);
-
-    char* dev_name = "NULL";
-
-    DEV_MOUNT = kmalloc(sizeof(char)*strlen(dev_name), GFP_KERNEL);
-    strncpy(DEV_MOUNT,dev_name,strlen(dev_name));
+    set_block_device_onUmount();
         
     printk(KERN_INFO "%s: singlefilefs unmount succesful.\n",MOD_NAME);
     return;
@@ -109,9 +103,11 @@ struct dentry *singlefilefs_mount(struct file_system_type *fs_type, int flags, c
         printk("%s: error mounting onefilefs",MOD_NAME);
     else{
         printk("%s: singlefilefs is succesfully mounted on from device %s\n",MOD_NAME,dev_name);
-        DEV_MOUNT = kmalloc(sizeof(char)*strlen(dev_name), GFP_KERNEL);
-        strncpy(DEV_MOUNT,dev_name,strlen(dev_name));
+        set_block_device_onMount(dev_name);
+        inizialize_meta_block();
     }
+
+
 
 
     return ret;
@@ -136,6 +132,7 @@ int singlefilefs_init(void) {
         printk("%s: sucessfully registered singlefilefs\n",MOD_NAME);
     else
         printk("%s: failed to register singlefilefs - error %d", MOD_NAME,ret);
+
 
     return ret;
 }

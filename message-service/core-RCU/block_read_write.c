@@ -5,8 +5,6 @@
 #include "lib/include/block_read_write.h"
 
 
-static int blocks_number = 100;
-
 int get_next_free_block(){
 
     int nextFreeBlock = -1;
@@ -16,7 +14,7 @@ int get_next_free_block(){
     meta_block_rcu= read_ram_metablk();
     block_device = get_block_device_AfterMount();
 
-    if(meta_block_rcu->nextFreeBlock+1 < blocks_number){
+    if(meta_block_rcu->nextFreeBlock+1 < meta_block_rcu->blocksNumber){
         meta_block_rcu->nextFreeBlock++;
         nextFreeBlock = meta_block_rcu->nextFreeBlock;
     }
@@ -26,7 +24,7 @@ int get_next_free_block(){
         if(meta_block_rcu->headInvalidBlock->next != NULL)
             meta_block_rcu->headInvalidBlock = meta_block_rcu->headInvalidBlock->next;
         else
-            meta_block_rcu->headInvalidBlock->block = -1;
+            meta_block_rcu->headInvalidBlock->block = BLOCK_ERROR;
     }
 
     return nextFreeBlock;
@@ -87,7 +85,7 @@ void read_all_block(char* data){
         memcpy( temp_block,temp, DIM_BLOCK);
         concat_data(data,temp_block);
         
-        while (temp_block->next_block != -1){
+        while (temp_block->next_block != BLOCK_ERROR){
 
             temp_block_to_read = temp_block->next_block;
 

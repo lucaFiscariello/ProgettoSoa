@@ -43,17 +43,16 @@
 #include <linux/syscalls.h>
 
 #include "lib/include/scth.h"
+#include "lib/include/system-call.h"
 #include "../core-RCU/lib/include/rcu.h"
 #include "../singlefile-FS/lib/include/singlefilefs.h"
 #include "../device-driver/lib/include/char-dev.h"
 
-#include "lib/include/system-call.h"
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Francesco Quaglia <francesco.quaglia@uniroma2.it>");
-MODULE_DESCRIPTION("virtual to physical page mapping oracle");
+MODULE_AUTHOR("Luca Fiscariello");
 
-#define MODNAME "VTPMO"
+#define MODNAME "Message_service"
 
 unsigned long the_syscall_table = 0x0;
 module_param(the_syscall_table, ulong, 0660);
@@ -61,7 +60,7 @@ module_param(the_syscall_table, ulong, 0660);
 
 unsigned long the_ni_syscall;
 
-unsigned long new_sys_call_array[] = {0x0};//please set to sys_vtpmo at startup
+unsigned long new_sys_call_array[] = {0x0,0x0,0x0};
 #define HACKED_ENTRIES (int)(sizeof(new_sys_call_array)/sizeof(unsigned long))
 int restore[HACKED_ENTRIES] = {[0 ... (HACKED_ENTRIES-1)] -1};
 
@@ -70,20 +69,11 @@ int restore[HACKED_ENTRIES] = {[0 ... (HACKED_ENTRIES-1)] -1};
 #define AUDIT if(1)
 
 
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,17,0)
 __SYSCALL_DEFINEx(1, _vtpmo, unsigned long, vaddr){
-#else
-asmlinkage long sys_vtpmo(unsigned long vaddr){
-#endif
+
 
 	printk("%s: Sono stato invocato!",MODNAME);
-
-        char* devName = getDevMount();
-        
-        printk("%s: device name %s\n",MODNAME, devName);
-        set_block_device_onMount(devName);
-        inizialize_meta_block();       
+     
 
         struct block *blockwrite = kmalloc(DIM_BLOCK,GFP_KERNEL);
         struct block *blockRead = kmalloc(DIM_BLOCK,GFP_KERNEL);
@@ -121,11 +111,39 @@ asmlinkage long sys_vtpmo(unsigned long vaddr){
 	
 }
 
+__SYSCALL_DEFINEx(2, _put_data, char*, source,size_t, size){
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,17,0)
-long sys_vtpmo = (unsigned long) __x64_sys_vtpmo;       
-#else
-#endif
+        int block_number;
+        char* kernel_buffer = kmalloc(size,GFP_KERNEL);
+        copy_from_user(kernel_buffer, source, size);
+
+        block_number = write_rcu(kernel_buffer);
+
+	return block_number;
+	
+}
+
+__SYSCALL_DEFINEx(3, _get_data, int, offset, char*, source,size_t, size){
+
+        struct block* block = kmalloc(DIM_BLOCK,GFP_KERNEL);
+        
+        read_block_rcu(offset,block);
+        copy_to_user(source, block->data, size);
+
+	return 0;
+	
+}
+
+__SYSCALL_DEFINEx(1, _invalidate_data, int, offset){
+
+        invalidate_rcu(offset);
+	return 0;
+	
+}
+
+long sys_invalidate_data = (unsigned long) __x64_sys_invalidate_data;       
+long sys_put_data = (unsigned long) __x64_sys_put_data;       
+long sys_get_data = (unsigned long) __x64_sys_get_data;       
 
 
 int init_system_call(void) {
@@ -141,7 +159,10 @@ int init_system_call(void) {
 		printk("%s: initializing - hacked entries %d\n",MODNAME,HACKED_ENTRIES);
 	}
 
-	new_sys_call_array[0] = (unsigned long)sys_vtpmo;
+	new_sys_call_array[0] = (unsigned long)sys_invalidate_data;
+        new_sys_call_array[1] = (unsigned long)sys_put_data;
+        new_sys_call_array[2] = (unsigned long)sys_get_data;
+
 
         ret = get_entries(restore,HACKED_ENTRIES,(unsigned long*)the_syscall_table,&the_ni_syscall);
 

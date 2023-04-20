@@ -2,7 +2,7 @@
 #define READWRITEBLOCK
 
 #include "meta_block.h"
-
+#include "rcu.h"
 
 #define concat_data(data,temp_block)\
    strcat(data,temp_block->data);\

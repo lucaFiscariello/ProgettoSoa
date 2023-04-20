@@ -2,14 +2,15 @@
 #include <linux/buffer_head.h>
 #include <linux/blkdev.h>
 #include <linux/string.h>
+#include <linux/kernel.h>
 
 #include "lib/include/meta_block.h"
 
 static struct block_device *block_device = NULL;
 static struct meta_block_rcu *meta_block_rcu = NULL;
-static int blocks_number = 100;
+static int blocks_number = 0x0;
 
-
+module_param(blocks_number, int, 0660);
 
 void set_block_device_onMount(char* devname){
     block_device= blkdev_get_by_path(devname, FMODE_READ|FMODE_WRITE, NULL);
@@ -32,7 +33,7 @@ void inizialize_meta_block(){
     if (bh->b_data != NULL){
 
         head = kmalloc(sizeof(struct invalid_block),GFP_KERNEL);
-        head->block = -1;
+        head->block = BLOCK_ERROR;
         head->next = NULL;
 
         meta_block_rcu = kmalloc(sizeof(struct meta_block_rcu),GFP_KERNEL);
@@ -60,7 +61,7 @@ void flush_device_metablk(){
       
     if (bh->b_data != NULL){
 
-        while(head->next != NULL && head->block != -1 ){
+        while(head->next != NULL && head->block != BLOCK_ERROR ){
             
             meta_block_rcu->invalidBlocks[pos++] = head->block;
             head = head->next;
