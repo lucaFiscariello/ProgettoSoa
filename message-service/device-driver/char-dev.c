@@ -70,7 +70,9 @@ static ssize_t dev_write(struct file *filp, const char *buff, size_t len, loff_t
 #else
    printk("%s: somebody called a write on dev with [major,minor] number [%d,%d]\n",MODNAME,MAJOR(filp->f_dentry->d_inode->i_rdev),MINOR(filp->f_dentry->d_inode->i_rdev));
 #endif
-  
+   
+   check_mount();
+
    char* kernel_buffer = kmalloc(len,GFP_KERNEL);
    copy_from_user(kernel_buffer, buff, len);
 
@@ -89,8 +91,8 @@ static ssize_t dev_read(struct file *filp, char *buff, size_t len, loff_t *off) 
    printk("%s: somebody called a read on dev with [major,minor] number [%d,%d]\n",MODNAME,MAJOR(filp->f_dentry->d_inode->i_rdev),MINOR(filp->f_dentry->d_inode->i_rdev));
 #endif
    
-   printk("offset: %d",len);
-   read_all_block(buff);
+   check_mount();
+   read_all_block_rcu(buff);
    
    return len;
 

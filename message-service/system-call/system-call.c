@@ -53,91 +53,50 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Luca Fiscariello");
 
 #define MODNAME "Message_service"
+#define NO_MAP (-EFAULT)
+#define AUDIT if(1)
 
 unsigned long the_syscall_table = 0x0;
 module_param(the_syscall_table, ulong, 0660);
 
 
 unsigned long the_ni_syscall;
-
 unsigned long new_sys_call_array[] = {0x0,0x0,0x0};
+
 #define HACKED_ENTRIES (int)(sizeof(new_sys_call_array)/sizeof(unsigned long))
 int restore[HACKED_ENTRIES] = {[0 ... (HACKED_ENTRIES-1)] -1};
 
 
-#define NO_MAP (-EFAULT)
-#define AUDIT if(1)
-
-
-__SYSCALL_DEFINEx(1, _vtpmo, unsigned long, vaddr){
-
-
-	printk("%s: Sono stato invocato!",MODNAME);
-     
-
-        struct block *blockwrite = kmalloc(DIM_BLOCK,GFP_KERNEL);
-        struct block *blockRead = kmalloc(DIM_BLOCK,GFP_KERNEL);
-        struct block *blockRead2 = kmalloc(DIM_BLOCK,GFP_KERNEL);
-
-        int num_block_read;
-
-        char* testo = "prova testo1";
-        char* testo2 = "prova testo2";
-        char* testo3 = "prova testo3";
-        char* testo4 = "prova testo4";
-        char* testo5 = "prova testo5";
-        char* testo6 = "prova testo6";
-        char* all;
-        all = kmalloc(DIM_BLOCK,GFP_KERNEL);
-
-        write_rcu(testo);
-
-        num_block_read = write_rcu(testo2);
-        invalidate_rcu(num_block_read);
-
-        num_block_read = write_rcu(testo3);
-        invalidate_rcu(num_block_read);
-
-        write_rcu(testo4);
-        write_rcu(testo5);
-        write_rcu(testo6);
-
-        read_all_block_rcu(all);
-        printk("tutti i dati: %s", all);
-
-
-
-	return 0;
-	
-}
-
 __SYSCALL_DEFINEx(2, _put_data, char*, source,size_t, size){
+
+        check_mount();
 
         int block_number;
         char* kernel_buffer = kmalloc(size,GFP_KERNEL);
         copy_from_user(kernel_buffer, source, size);
 
-        block_number = write_rcu(kernel_buffer);
-
-	return block_number;
+	return  write_rcu(kernel_buffer);
 	
 }
 
 __SYSCALL_DEFINEx(3, _get_data, int, offset, char*, source,size_t, size){
 
+        check_mount();
+
+        int ret;
         struct block* block = kmalloc(DIM_BLOCK,GFP_KERNEL);
         
-        read_block_rcu(offset,block);
+        ret = read_block_rcu(offset,block);
         copy_to_user(source, block->data, size);
 
-	return 0;
+	return ret;
 	
 }
 
 __SYSCALL_DEFINEx(1, _invalidate_data, int, offset){
 
-        invalidate_rcu(offset);
-	return 0;
+        check_mount();
+	return invalidate_rcu(offset);
 	
 }
 
@@ -150,8 +109,6 @@ int init_system_call(void) {
 
 	int i;
 	int ret;
-
-        printk("inizializzo modulo!");
 
 
 	AUDIT{

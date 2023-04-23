@@ -8,8 +8,12 @@
 #define VALID_BLOCK 1
 #define INVALID_BLOCK 0
 #define BLOCK_ERROR -1
-#define lock(lock_element) (__sync_val_compare_and_swap(&lock_element,ZERO_WRITER,LOCK_WRITER))
 #define unlock(lock_element) (lock_element=ZERO_WRITER)
+
+#define lock(lock_element) \
+    int old_value = __sync_val_compare_and_swap(&lock_element,ZERO_WRITER,LOCK_WRITER);\
+    if(old_value == LOCK_WRITER)\
+        return LOCKERROR;
 
 #define update_pointer_onInvalidate(pred_block,block_update_next,next_block,block_update_pred,meta_block_rcu) \
     if(pred_block !=NULL) pred_block->next_block = block_update_next;\
@@ -22,10 +26,10 @@
         meta_block_rcu->lastWriteBlock = block_update_pred;\
     }
 
-void read_block_rcu(int block_to_read,struct block* block);
-void read_all_block_rcu(char* block_data);
+int read_block_rcu(int block_to_read,struct block* block);
+int read_all_block_rcu(char* block_data);
 int write_rcu(char* block_data);
-void invalidate_rcu(int block_to_invalidate);
+int invalidate_rcu(int block_to_invalidate);
 
 
 #endif

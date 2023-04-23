@@ -85,7 +85,7 @@ int main(int argc, char *argv[])
 	}
 	printf("Padding in the inode block written sucessfully.\n");
 
-
+	
 	close(fd);
 
 	return 0;

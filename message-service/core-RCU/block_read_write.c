@@ -7,7 +7,7 @@
 
 int get_next_free_block(){
 
-    int nextFreeBlock = -1;
+    int nextFreeBlock = BLOCK_ERROR;
     struct meta_block_rcu *meta_block_rcu;
     struct block_device *block_device;
 
@@ -32,20 +32,18 @@ int get_next_free_block(){
 }
 
 
-void read( int block_to_read,struct block* block){
+int read( int block_to_read,struct block* block){
     struct meta_block_rcu *meta_block_rcu;
     struct buffer_head *bh = NULL;
     struct block_device *block_device;
     void* temp;
+    int ret;
 
     meta_block_rcu= read_ram_metablk();
     block_device = get_block_device_AfterMount();
     bh = (struct buffer_head *)sb_bread(block_device->bd_super, block_to_read);
 
-
-    if(block_to_read <0 || block_to_read >= meta_block_rcu->blocksNumber)
-        return;
-
+    check_block_index(block_to_read,meta_block_rcu);
    
     if (bh->b_data != NULL){ 
 
@@ -56,18 +54,23 @@ void read( int block_to_read,struct block* block){
 
     }
 
+
     brelse(bh);
+
+    check_block_validity(block);
+
+    return strlen(block->data);
 
 }
 
-void read_all_block(char* data){
+int read_all_block(char* data){
 
     struct buffer_head *bh = NULL;
     struct block *temp_block;
-    int temp_block_to_read;
-    void* temp;
     struct meta_block_rcu *meta_block_rcu;
     struct block_device *block_device;
+    int temp_block_to_read;
+    void* temp;
 
     block_device = get_block_device_AfterMount();
     meta_block_rcu= read_ram_metablk();
@@ -78,13 +81,13 @@ void read_all_block(char* data){
 
     bh = (struct buffer_head *)sb_bread(block_device->bd_super, temp_block_to_read);
     temp = (void*) rcu_dereference(bh->b_data);
-    
 
     if (temp != NULL){ 
 
         memcpy( temp_block,temp, DIM_BLOCK);
         concat_data(data,temp_block);
-        
+        brelse(bh);
+
         while (temp_block->next_block != BLOCK_ERROR){
 
             temp_block_to_read = temp_block->next_block;
@@ -92,27 +95,32 @@ void read_all_block(char* data){
             bh = (struct buffer_head *)sb_bread(block_device->bd_super, temp_block_to_read);
             temp = (void*) rcu_dereference(bh->b_data);
 
+
             if (temp != NULL){ 
                 memcpy( temp_block,temp, DIM_BLOCK);
                 concat_data(data,temp_block);
             }
             
+            brelse(bh);
+            
         }
 
+    }else{
+        brelse(bh);
     }
 
     rcu_read_unlock(); 
-    brelse(bh);
+
+    return strlen(data);
 
 }
 
-void write(int block_to_write,struct block* block){
+int write(int block_to_write,struct block* block){
 
     struct block_device *block_device = get_block_device_AfterMount();
     struct meta_block_rcu *meta_block_rcu = read_ram_metablk();;
 
-    if(block_to_write < 0 || block_to_write >= meta_block_rcu->blocksNumber)
-        return;
+    check_block_index(block_to_write,meta_block_rcu);
 
     struct buffer_head *bh = NULL;
     void* temp;
@@ -128,6 +136,8 @@ void write(int block_to_write,struct block* block){
     }
 
     brelse(bh);
+    
+    return block_to_write;
 
 }
 

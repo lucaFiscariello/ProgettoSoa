@@ -3,25 +3,18 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 
-void read_block_rcu(int block_to_read, struct block *block)
+int read_block_rcu(int block_to_read, struct block *block)
 {
-    read(block_to_read, block);
+   return read(block_to_read, block);
 
-    if(block->validity == INVALID_BLOCK){
-        block = NULL;
-        return;
-    }
 }
 
-void read_all_block_rcu(char *block_data)
+int read_all_block_rcu(char *block_data)
 {
-    read_all_block(block_data);
+    return read_all_block(block_data);
 }
 
-/* TODO:
-    modifica i return delle funzioni
-    mettere controllo su while : all o niente
-*/
+
 int write_rcu(char *block_data)
 {
 
@@ -61,11 +54,11 @@ int write_rcu(char *block_data)
     write(block_to_update, pred_block);
 
     unlock(meta_block_rcu->write_lock);
-
+    printk("scrittura completata");
     return block_to_write;
 }
 
-void invalidate_rcu(int block_to_invalidate){
+int invalidate_rcu(int block_to_invalidate){
 
     struct meta_block_rcu *meta_block_rcu;
     struct invalid_block * new_invalid_block;
@@ -80,18 +73,17 @@ void invalidate_rcu(int block_to_invalidate){
     pred_block = kmalloc(DIM_BLOCK, GFP_KERNEL);
     next_block = kmalloc(DIM_BLOCK, GFP_KERNEL);
     new_invalid_block = kmalloc(sizeof(struct invalid_block),GFP_KERNEL);
-
-    if(block_to_invalidate<0 || block_to_invalidate>meta_block_rcu->blocksNumber)
-        return;
-
+    
     lock(meta_block_rcu->write_lock);
 
-    read(block_to_invalidate,block);
+    check_return_read(read(block_to_invalidate,block));
+    check_block_validity(block);
+
     block_update_pred = block->pred_block;
     block_update_next = block->next_block;
 
-    read(block_update_pred,pred_block);
-    read(block_update_next,next_block);
+    check_return_read(read(block_update_pred,pred_block));
+    check_return_read(read(block_update_next,next_block));
 
     block->validity = INVALID_BLOCK;
 
@@ -109,6 +101,7 @@ void invalidate_rcu(int block_to_invalidate){
 
     unlock(meta_block_rcu->write_lock);
 
+    return 0;
 
 }
 

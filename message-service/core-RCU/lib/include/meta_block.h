@@ -11,6 +11,12 @@
 #define DIM_DATA_BLOCK 4096 - DIM_META_DATA
 #define DIM_BLOCK 4096
 #define MAX_INVALID_BLOCK 800
+#define ENODEV -4
+
+#define check_mount()\
+    if(get_block_device_AfterMount()==NULL)\
+        return ENODEV;
+
 
 struct meta_block_rcu {
    int firstBlock;

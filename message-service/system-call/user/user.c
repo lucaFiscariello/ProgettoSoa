@@ -6,12 +6,12 @@
 #include <sys/mman.h>
 
 
-#define VTPMO 156 //this depends on what the kernel tells you when mounting the vtpmo module
+#define INVALIDATE 156 //this depends on what the kernel tells you when mounting the vtpmo module
 #define PUT 174
 #define GET 177
 
-int vtpmo(unsigned long x){
-	return syscall(VTPMO,x);
+int invalidate_data(int offset){
+	return syscall(INVALIDATE,offset);
 }
 
 int put_data(char * source, size_t size){
@@ -24,7 +24,6 @@ int get_data(int offset, char * source, size_t size){
 
 int main(int argc, char** argv){
         
-    //vtpmo(1L);
 
 	char* testo = "prova testo s1";
 	char* testo2 = "prova testo s2";
@@ -32,9 +31,10 @@ int main(int argc, char** argv){
 	char* testoletto = malloc(sizeof(char)*15);
 
 	int offset = put_data(testo,15);
-	put_data(testo2,15);
+	int offset2 = put_data(testo2,15);
+	invalidate_data(offset);
 
-	get_data(offset,testoletto,15);
+	get_data(offset2,testoletto,15);
 
 	printf("letto %s",testoletto);
 
