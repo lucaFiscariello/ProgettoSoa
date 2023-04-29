@@ -73,8 +73,8 @@ static ssize_t dev_write(struct file *filp, const char *buff, size_t len, loff_t
    
    check_mount();
 
-   char* kernel_buffer = kmalloc(len,GFP_KERNEL);
-   copy_from_user(kernel_buffer, buff, len);
+   char* kernel_buffer = kmalloc(DIM_DATA_BLOCK,GFP_KERNEL);
+   copy_from_user(kernel_buffer, buff, DIM_DATA_BLOCK);
 
    write_rcu(kernel_buffer);
 

@@ -9,47 +9,15 @@
 #include <linux/string.h>
 
 #include "lib/include/singlefilefs.h"
+#include "../core-RCU/lib/include/rcu.h"
 
 
 ssize_t onefilefs_read(struct file * filp, char __user * buf, size_t len, loff_t * off) {
 
-    struct buffer_head *bh = NULL;
-    struct inode * the_inode = filp->f_inode;
-    uint64_t file_size = the_inode->i_size;
-    int ret;
-    loff_t offset;
-    int block_to_read;//index of the block to be read from device
+    char* kernel_buffer = kmalloc(DIM_DATA_BLOCK,GFP_KERNEL);
+    read_all_block_rcu(kernel_buffer);
 
-    printk("%s: read operation called with len %ld - and offset %lld (the current file size is %lld)",MOD_NAME, len, *off, file_size);
-
-    //this operation is not synchronized 
-    //*off can be changed concurrently 
-    //add synchronization if you need it for any reason
-
-    //check that *off is within boundaries
-    if (*off >= file_size)
-        return 0;
-    else if (*off + len > file_size)
-        len = file_size - *off;
-
-    //determine the block level offset for the operation
-    offset = *off % DEFAULT_BLOCK_SIZE; 
-    //just read stuff in a single block - residuals will be managed at the applicatin level
-    if (offset + len > DEFAULT_BLOCK_SIZE)
-        len = DEFAULT_BLOCK_SIZE - offset;
-
-    //compute the actual index of the the block to be read from device
-    block_to_read = *off / DEFAULT_BLOCK_SIZE + 2; //the value 2 accounts for superblock and file-inode on device
-    
-    printk("%s: read operation must access block %d of the device",MOD_NAME, block_to_read);
-
-    bh = (struct buffer_head *)sb_bread(filp->f_path.dentry->d_inode->i_sb, block_to_read);
-    if(!bh){
-	return -EIO;
-    }
-    ret = copy_to_user(buf,bh->b_data + offset, len);
-    *off += (len - ret);
-    brelse(bh);
+    int ret = copy_to_user(buf,kernel_buffer, strlen(kernel_buffer));
 
     return len - ret;
 
