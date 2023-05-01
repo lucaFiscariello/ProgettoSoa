@@ -25,7 +25,6 @@ MODULE_AUTHOR("Francesco Quaglia");
 
 static int dev_open(struct inode *, struct file *);
 static int dev_release(struct inode *, struct file *);
-static ssize_t dev_write(struct file *, const char *, size_t, loff_t *);
 
 #define DEVICE_NAME "my-new-dev"  /* Device file name in /dev/ - not mandatory  */
 
@@ -61,28 +60,7 @@ static int dev_release(struct inode *inode, struct file *file) {
 
 }
 
-
-static ssize_t dev_write(struct file *filp, const char *buff, size_t len, loff_t *off) {
-
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 0, 0)
-   printk("%s: somebody called a write on dev with [major,minor] number [%d,%d]\n",MODNAME,MAJOR(filp->f_inode->i_rdev),MINOR(filp->f_inode->i_rdev));
-#else
-   printk("%s: somebody called a write on dev with [major,minor] number [%d,%d]\n",MODNAME,MAJOR(filp->f_dentry->d_inode->i_rdev),MINOR(filp->f_dentry->d_inode->i_rdev));
-#endif
-   
-   check_mount();
-
-   char* kernel_buffer = kmalloc(DIM_DATA_BLOCK,GFP_KERNEL);
-   copy_from_user(kernel_buffer, buff, DIM_DATA_BLOCK);
-
-   write_rcu(kernel_buffer);
-
-
-  return len;
-
-}
-
+static int first_read = 0;
 static ssize_t dev_read(struct file *filp, char *buff, size_t len, loff_t *off) {
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 0, 0)
@@ -92,20 +70,24 @@ static ssize_t dev_read(struct file *filp, char *buff, size_t len, loff_t *off) 
 #endif
    
    check_mount();
-   read_all_block_rcu(buff);
-   
-   return len;
+
+   int ret = read_all_block_rcu(buff);
+  
+   if(*off-len == 0)
+      return 0;
+
+   *off += len;
+
+   return ret;
 
 }
 
 
 static struct file_operations fops = {
-  .write = dev_write,
   .read = dev_read,
   .open =  dev_open,
   .release = dev_release
 };
-
 
 
 int init_driver(void) {
