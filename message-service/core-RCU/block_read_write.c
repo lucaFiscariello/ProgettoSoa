@@ -41,8 +41,10 @@ int get_next_free_block(){
         nextFreeBlock = meta_block_rcu->headInvalidBlock->block;
 
         //Verifico se il primo elemento della lista è valido
-        if(meta_block_rcu->headInvalidBlock->next != NULL)
+        if(meta_block_rcu->headInvalidBlock->next != NULL){
             meta_block_rcu->headInvalidBlock = meta_block_rcu->headInvalidBlock->next;
+            meta_block_rcu->invalidBlocksNumber--;
+        }
         else
             meta_block_rcu->headInvalidBlock->block = BLOCK_ERROR;
     }
