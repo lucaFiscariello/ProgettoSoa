@@ -93,11 +93,11 @@ int read( int block_to_read,struct block* block){
 }
 
 /**
- * Questa funzione legge tutti i blocchi validi mantenuti nel device. Tutti i blocchi validi sono collegati tra di loro 
+ * Questa funzione legge tutti i blocchi validi mantenuti nel device. La lettura segue l'ordine di delivery. Tutti i blocchi validi sono collegati tra di loro 
  * attraverso una serie di informazioni mantenute dai metadati del blocco stesso. In particolare ogni blocco nei propri metadati mantiene
  * gli ID dei blocchi scritti temporalmente prima e dopo di lui. In questo modo è implementata a tutti gli effetti una lista doppiamente collegata.
- * La resposabilità della funzione è quindi quella di individuare l'offset del primo blocco  valido scritto e scorrere la lista 
- * per leggere tutti i blocchi validi. L'ID del primo blocco valido è mantenuto nel meta blocco.
+ * La resposabilità della funzione è quindi quella di individuare l'ID del primo blocco valido e scorrere la lista 
+ * per leggere tutti i blocchi validi. L'ID del primo blocco valido è mantenuto in un campo del meta blocco.
  * La lettura è implementata utilizzando le API Linux rcu, pertanto un lettore leggerà tutti i blocchi ancora validi alla chiamata di 
  * "rcu_read_lock" anche se è presente uno scrittore concorrente.
 */
@@ -115,6 +115,7 @@ int read_all_block(char* data){
     temp_block_to_read = meta_block_rcu->firstBlock;
     temp_block = kmalloc(DIM_BLOCK, GFP_KERNEL);
 
+    //Segnalo presenza di un lettore a eventuali scrittori
     rcu_read_lock();
     
     // Leggo primo blocco valido
@@ -127,7 +128,7 @@ int read_all_block(char* data){
         concat_data(data,temp_block);
         brelse(bh);
 
-        // Scorro la lista dei blocchi validi
+        // Scorro la lista dei blocchi validi seguendo l'ordine di consegna
         while (temp_block->next_block != BLOCK_ERROR){
 
             temp_block_to_read = temp_block->next_block;

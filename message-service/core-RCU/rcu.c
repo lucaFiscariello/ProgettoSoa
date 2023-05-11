@@ -103,8 +103,6 @@ int invalidate_rcu(int block_to_invalidate){
     next_block = kmalloc(DIM_BLOCK, GFP_KERNEL);
     new_invalid_block = kmalloc(sizeof(struct invalid_block),GFP_KERNEL);
     
-    // acquisisco lock in scrittura
-    lock(meta_block_rcu->write_lock);
 
     check_return_read(read(block_to_invalidate,block));
     check_block_validity(block);
@@ -127,10 +125,15 @@ int invalidate_rcu(int block_to_invalidate){
     meta_block_rcu->headInvalidBlock = new_invalid_block;
     meta_block_rcu->invalidBlocksNumber++;
 
+    // acquisisco lock in scrittura
+    lock(meta_block_rcu->write_lock);
+
     // aggiorno tutti metadati dei 3 blocchi toccati
     write(block_to_invalidate, block);
     write(block_update_next,next_block);
     write(block_update_pred,pred_block);
+
+    decrement_dim_file(strlen(block->data)+1);
 
     unlock(meta_block_rcu->write_lock);
 

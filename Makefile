@@ -10,7 +10,6 @@ all:
 create-fs:
 	dd bs=4096 count=$(num_block) if=/dev/zero of=message-service/singlefile-FS/image
 	./message-service/singlefile-FS/singlefilemakefs message-service/singlefile-FS/image
-	sudo mknod /dev/myDev c 237 0
 
 mount-mod:
 	sudo insmod Linux-sys_call_table-discoverer-master/the_usctm.ko
@@ -23,8 +22,6 @@ mount-fs:
 	sudo mount -o loop -t singlefilefs message-service/singlefile-FS/image ./mount/
 
 
-remove-fs:
-	sudo rm /dev/myDev
 
 umount-fs:
 	sudo umount ./mount/
@@ -40,6 +37,9 @@ clean:
 
 	rm message-service/singlefile-FS/singlefilemakefs
 
+user:
+	./message-service/system-call/user/user
+
 mount-all:
 	make create-fs
 	make mount-mod
@@ -48,7 +48,6 @@ mount-all:
 
 
 umount-all:
-	make remove-fs
 	make umount-fs
 	make umount-mod
 	

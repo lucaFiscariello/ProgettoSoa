@@ -3,10 +3,11 @@
 
 #include <linux/blkdev.h>
 #include "rcu.h"
-
+#include "../../../singlefile-FS/lib/include/singlefilefs.h"
 
 #define MAX_INVALID_BLOCK 800
 #define POS_META_BLOCK 2
+#define POS_I_NODE 1
 #define DIM_META_DATA 12
 #define DIM_DATA_BLOCK 4096 - DIM_META_DATA
 #define DIM_BLOCK 4096
@@ -83,6 +84,8 @@ struct invalid_block {
 void inizialize_meta_block(void); 
 void set_block_device_onMount(char* devname);
 void set_block_device_onUmount(void);
+void increment_dim_file(int write_bytes);
+void decrement_dim_file(int bytes);
 struct block_device * get_block_device_AfterMount(void);
 struct meta_block_rcu* read_ram_metablk(void); 
 struct meta_block_rcu* read_device_metablk(void); 

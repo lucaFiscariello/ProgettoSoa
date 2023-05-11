@@ -133,6 +133,50 @@ struct meta_block_rcu* read_ram_metablk(){
     return meta_block_rcu;
 }
 
+/**
+ * In seguito ad un operazione di scritture è necessario incrementare il campo nell'inode che contiene la dimensione del file.
+ * Questo metodo ha proprio questa responsabilità.
+*/
+void increment_dim_file(int write_bytes){
+
+    struct buffer_head *bh = NULL;
+    struct onefilefs_inode *inode;
+    void** temp;
+
+    bh = (struct buffer_head *)sb_bread(block_device->bd_super, POS_I_NODE);
+
+    if (bh->b_data != NULL){ 
+        
+        temp = (void**)bh->b_data;
+        inode = (struct onefilefs_inode *)temp;
+        inode->file_size = inode->file_size+write_bytes;
+
+    }
+     
+}
+
+/**
+ * In seguito ad un operazione di invalidazione di un blocco è necessario incrementare il campo nell'inode che contiene la dimensione del file.
+ * Questo metodo ha proprio questa responsabilità.
+*/
+void decrement_dim_file(int bytes){
+
+    struct buffer_head *bh = NULL;
+    struct onefilefs_inode *inode;
+    void** temp;
+
+    bh = (struct buffer_head *)sb_bread(block_device->bd_super, POS_I_NODE);
+
+    if (bh->b_data != NULL){ 
+        
+        temp = (void**)bh->b_data;
+        inode = (struct onefilefs_inode *)temp;
+        inode->file_size = inode->file_size-bytes;
+
+    }
+}
+
+
 void set_block_device_onMount(char* devname){
     block_device= blkdev_get_by_path(devname, FMODE_READ|FMODE_WRITE, NULL);
 }

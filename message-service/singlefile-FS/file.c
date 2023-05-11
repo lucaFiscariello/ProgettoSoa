@@ -11,19 +11,48 @@
 #include "lib/include/singlefilefs.h"
 #include "../core-RCU/lib/include/rcu.h"
 
+
+/**
+ * La funzione di lettura è implementata nel seguente modo:
+ *  - si sfrutta l'api read_all_block_rcu() che legge tutti i blocchi validi seguendo l'ordine di delivery
+ *  - tutti i blocchi letti vengono concatenati e memorizzati in un buffer temporaneo
+ *  - il puntatore del buffer temporaneo è mantenuto in filp->private_data
+ * Questa implementazione offre garanzie se durante la lettura avviene una scrittura concorrente. Terminata l'esecuzione di read_all_block_rcu() si avrà a disposizione
+ * in un buffer locale dei dati che non possono più essere toccati da nessuno scrittore. Questo permette di rilasciare le informazioni che 
+ * sono presenti nel buffer temporaneo un blocco alla volta di dimensione "len" senza che nessun altro thread interferisca.
+ * I dati che sono mantenuti nel buffer temporaneo sono stati privati dei metadati.
+*/
 ssize_t onefilefs_read(struct file * filp, char __user * buf, size_t len, loff_t * off) {
 
-    char* kernel_buffer = kmalloc(DIM_DATA_BLOCK,GFP_KERNEL);
-    int ret = read_all_block_rcu(kernel_buffer);
+    
+    char* kernel_buffer;
+    int ret;
 
-    copy_to_user(buf,kernel_buffer, strlen(kernel_buffer));
+    // il campo filp->private_data sarà NULL alla prima invocazione della funzione
+    if(filp->private_data == NULL){
 
-	if(*off-len == 0)
-      return 0;
+        //Alla prima invocazione della funzione leggo tutti i blocchi e li memorizzo in un buffer temporaneo
+        kernel_buffer = kmalloc(len,GFP_KERNEL);
+        read_all_block_rcu(kernel_buffer);
+        filp->private_data = kernel_buffer;
 
-   	*off += len;
+    }else{
 
-    return ret;
+        //Verifico se ho letto tutti i dati dal buffer temporaneo
+        if(*off >= strlen(filp->private_data)){
+
+            kfree(filp->private_data);
+            return 0;
+
+        }
+    }
+
+    //Copio i dati nel buffer utente un blocco alla volta di dimensione "len"
+    filp->private_data;
+    ret = copy_to_user(buf,filp->private_data + *off , len);
+    *off += len-ret; 
+
+    return len-ret;
 
 }
 
