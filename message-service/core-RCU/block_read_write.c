@@ -73,7 +73,8 @@ int read( int block_to_read,struct block* block){
     bh = (struct buffer_head *)sb_bread(block_device->bd_super, block_to_read);
 
     check_block_index(block_to_read,meta_block_rcu);
-   
+    check_block_validity(block_to_read,meta_block_rcu);
+
     if (bh->b_data != NULL){ 
 
         rcu_read_lock();
@@ -83,10 +84,7 @@ int read( int block_to_read,struct block* block){
 
     }
 
-
     brelse(bh);
-
-    check_block_validity(block);
 
     return strlen(block->data);
 

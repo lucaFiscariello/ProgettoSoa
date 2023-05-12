@@ -105,7 +105,8 @@ int invalidate_rcu(int block_to_invalidate){
     
 
     check_return_read(read(block_to_invalidate,block));
-    check_block_validity(block);
+    check_block_validity(block_to_invalidate,meta_block_rcu);
+
 
     //individuo i blocchi scritti prima e dopo il blocco da invalidare
     block_update_pred = block->pred_block;
