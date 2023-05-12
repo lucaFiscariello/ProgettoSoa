@@ -5,7 +5,7 @@
 #include "rcu.h"
 #include "../../../singlefile-FS/lib/include/singlefilefs.h"
 
-#define MAX_INVALID_BLOCK (DIM_BLOCK-64)/4
+#define MAX_INVALID_BLOCK (DIM_BLOCK-68)/4
 #define BIT_INT 32
 #define POS_META_BLOCK 2
 #define POS_I_NODE 1
@@ -13,6 +13,7 @@
 #define DIM_DATA_BLOCK 4096 - DIM_META_DATA
 #define DIM_BLOCK 4096
 #define ENODEV -4
+#define INIZIALIZE_META_BLK 1
 
 #define check_mount()\
     if(get_block_device_AfterMount()==NULL)\
@@ -50,6 +51,9 @@ struct meta_block_rcu {
 
    /*Numero di blocchi invalidati*/
    int invalidBlocksNumber;
+
+   /*Campo che permette di capire se il metablocco è stato formattato correttamente sul device*/
+   int already_inizialize;
 } ; 
 
 

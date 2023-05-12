@@ -33,6 +33,13 @@ void inizialize_meta_block(){
     struct buffer_head *bh = NULL;
     struct invalid_block* head;
 
+    meta_block_rcu = kmalloc(sizeof(struct meta_block_rcu),GFP_KERNEL);
+    meta_block_rcu = read_device_metablk();
+
+    //Verifico se il metablocco è stato già inizializzato
+    if(meta_block_rcu->already_inizialize)
+        return;
+
     bh = (struct buffer_head *)sb_bread(block_device->bd_super, POS_META_BLOCK);
       
     if (bh->b_data != NULL){
@@ -41,10 +48,11 @@ void inizialize_meta_block(){
         head->block = BLOCK_ERROR;
         head->next = NULL;
 
-        meta_block_rcu = kmalloc(sizeof(struct meta_block_rcu),GFP_KERNEL);
         meta_block_rcu->lastWriteBlock = POS_META_BLOCK;
         meta_block_rcu->nextFreeBlock = POS_META_BLOCK;
         meta_block_rcu->firstBlock = POS_META_BLOCK+1;
+        meta_block_rcu->already_inizialize = INIZIALIZE_META_BLK;
+
         meta_block_rcu->blocksNumber = blocks_number;
         meta_block_rcu->invalidBlocksNumber = 0;
         meta_block_rcu->headInvalidBlock = head;
@@ -69,8 +77,7 @@ void flush_device_metablk(){
     bh = (struct buffer_head *)sb_bread(block_device->bd_super, POS_META_BLOCK);
       
     if (bh->b_data != NULL){
-        
-        
+                
         //Aggiorno bit map segnalando quali nodi sono stati invalidati
         while(head->next != NULL && head->block != BLOCK_ERROR ){
             

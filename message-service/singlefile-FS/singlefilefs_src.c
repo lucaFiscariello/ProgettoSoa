@@ -85,6 +85,7 @@ int singlefilefs_fill_super(struct super_block *sb, void *data, int silent) {
 }
 
 static void singlefilefs_kill_superblock(struct super_block *s) {
+    flush_device_metablk();
     kill_block_super(s);
     set_block_device_onUmount();
         
