@@ -57,7 +57,7 @@ void inizialize_meta_block(){
 }
 
 /**
- * Il meta blocco è salvato in un blocco del device, tuttavia per motivi di prestazione è mantenuta una copia del blocco anche in ram.
+ * Il meta blocco è salvato in un blocco del device, tuttavia per motivi di prestazione è mantenuta una copia del meta blocco anche in ram.
  * Ne consegue che se il meta blocco è soggetto a modifiche è necessario effettuare il flush di tale modifiche anche nel device. 
  * Tale funzione ha proprio questa responsabilità.
 */
@@ -65,20 +65,16 @@ void flush_device_metablk(){
 
     struct buffer_head *bh = NULL;
     struct invalid_block* head = meta_block_rcu->headInvalidBlock;
-    int pos = 0;
 
     bh = (struct buffer_head *)sb_bread(block_device->bd_super, POS_META_BLOCK);
       
     if (bh->b_data != NULL){
         
-        /**
-         * Memorizzo nel meta blocco anche gli id dei blocchi invalidati. In ram tutti gli id dei blocchi sono mantenuti 
-         * in una linked list. Nel meta blocco sono invece memorizzati in un array. Il ciclo while effetua la conversione
-         * da linked list a array.
-        */
+        
+        //Aggiorno bit map segnalando quali nodi sono stati invalidati
         while(head->next != NULL && head->block != BLOCK_ERROR ){
             
-            meta_block_rcu->invalidBlocks[pos++] = head->block;
+            set_bit(head->block,meta_block_rcu);
             head = head->next;
 
         }
@@ -103,16 +99,20 @@ struct meta_block_rcu* read_device_metablk(){
       
     if (bh->b_data != NULL){ 
 
-       /**
-         * Nel meta blocco sono memorizzati anche gli id dei blocchi invalidati. In ram tutti gli id dei blocchi sono mantenuti 
-         * in una linked list. Nel meta blocco sono invece memorizzati in un array. Il ciclo for effetua la conversione
-         * da array a  linked list .
-        */
-        for(int i=0 ; i<meta_block_rcu->invalidBlocksNumber; i++){
-            new_invalid_block = kmalloc(sizeof(struct invalid_block),GFP_KERNEL);
-            new_invalid_block->block = meta_block_rcu->invalidBlocks[i];
-            new_invalid_block->next = meta_block_rcu->headInvalidBlock;
-            meta_block_rcu->headInvalidBlock = new_invalid_block;
+        
+        //Scorro tutta la bitmap mantenuta dal metablocco
+        for(int blok_id=0 ; blok_id<meta_block_rcu->blocksNumber; blok_id++){
+
+            //Se trovo un blocco invalidato creo un nuovo nodo nella linked list dei nodi attualmente invalidati
+            if(is_invalid(blok_id,meta_block_rcu)){
+
+                new_invalid_block = kmalloc(sizeof(struct invalid_block),GFP_KERNEL);
+                new_invalid_block->block = blok_id;
+                new_invalid_block->next = meta_block_rcu->headInvalidBlock;
+                meta_block_rcu->headInvalidBlock = new_invalid_block;
+
+            }
+         
         }
 
         memcpy(meta_block_rcu, bh->b_data, sizeof(struct meta_block_rcu));        

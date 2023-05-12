@@ -5,19 +5,21 @@
 #include "rcu.h"
 #include "../../../singlefile-FS/lib/include/singlefilefs.h"
 
-#define MAX_INVALID_BLOCK 800
+#define MAX_INVALID_BLOCK (DIM_BLOCK-64)/4
+#define BIT_INT 32
 #define POS_META_BLOCK 2
 #define POS_I_NODE 1
 #define DIM_META_DATA 12
 #define DIM_DATA_BLOCK 4096 - DIM_META_DATA
 #define DIM_BLOCK 4096
-#define MAX_INVALID_BLOCK 800
 #define ENODEV -4
 
 #define check_mount()\
     if(get_block_device_AfterMount()==NULL)\
         return ENODEV;
 
+#define set_bit(pos,meta_block)    ( meta_block->bitMap[pos/BIT_INT] |= (pos%BIT_INT) )
+#define is_invalid(pos,meta_block) ( meta_block->bitMap[pos/BIT_INT] & (1 << (pos/BIT_INT)) )
 
 /**
  * Tale struttura implementa il "meta blocco" ovvero un blocco di dati memorizzato nel device è che mantiene una serie di 
@@ -34,13 +36,10 @@ struct meta_block_rcu {
    /*Id dell'ultimo blocco su cui sono state effettuate operazioni di scrittura*/
    int lastWriteBlock;
 
-   /*Array di id di tutti i blocchi invalidati*/
-   int invalidBlocks[MAX_INVALID_BLOCK];
+   /*bitMap dei blocchi. Permette di capire quali blocchi sono stati invalidati*/
+   int bitMap[MAX_INVALID_BLOCK];
 
-   /**
-    * Linked list di tutti i blocchi invalidati. Ha la stessa responsabilità di "invalidBlocks[MAX_INVALID_BLOCK]"
-    * ma è utilizzata per motivi prestazionali
-   */
+   /*Linked list di tutti i blocchi invalidati.*/
    struct invalid_block * headInvalidBlock;
 
    /*Usato per implementare lock in scrittura*/
