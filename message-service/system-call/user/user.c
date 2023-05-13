@@ -6,9 +6,9 @@
 #include <sys/mman.h>
 
 
-#define INVALIDATE 156 //this depends on what the kernel tells you when mounting the vtpmo module
-#define PUT 174
-#define GET 177
+int INVALIDATE ; 
+int PUT ;
+int GET ;
 
 int invalidate_data(int offset){
 	return syscall(INVALIDATE,offset);
@@ -23,7 +23,10 @@ int get_data(int offset, char * source, size_t size){
 }
 
 int main(int argc, char** argv){
-        
+    
+	PUT = atoi(argv[1]);
+	GET = atoi(argv[2]);
+	INVALIDATE = atoi(argv[3]);
 
 	char* testo = "prova testo s1";
 	char* testo2 = "prova testo s2";
@@ -31,14 +34,9 @@ int main(int argc, char** argv){
 	char* testoletto = malloc(sizeof(char)*15);
 
 	int offset = put_data(testo,15);
-	printf("scrittura 1 a offset %d",offset);
-
 	int offset2 = put_data(testo2,15);
-	printf("scrittura 2 a offset %d",offset2);
 
 	invalidate_data(offset);
-	printf("invalidazione a offset %d",offset);
-
 	get_data(offset2,testoletto,15);
 
 	printf("letto %s\n",testoletto);

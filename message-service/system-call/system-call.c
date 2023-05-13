@@ -20,6 +20,14 @@ MODULE_AUTHOR("Luca Fiscariello");
 unsigned long the_syscall_table = 0x0;
 module_param(the_syscall_table, ulong, 0660);
 
+int PUT = 0;
+module_param(PUT, int, 0660);
+
+int GET = 0;
+module_param(GET, int, 0660);
+
+int INVALIDATE = 0;
+module_param(INVALIDATE, int, 0660);
 
 unsigned long the_ni_syscall;
 unsigned long new_sys_call_array[] = {0x0,0x0,0x0};
@@ -83,7 +91,6 @@ int init_system_call(void) {
         new_sys_call_array[1] = (unsigned long)sys_put_data;
         new_sys_call_array[2] = (unsigned long)sys_get_data;
 
-
         ret = get_entries(restore,HACKED_ENTRIES,(unsigned long*)the_syscall_table,&the_ni_syscall);
 
         if (ret != HACKED_ENTRIES){
@@ -93,6 +100,10 @@ int init_system_call(void) {
 
 	unprotect_memory();
 
+        INVALIDATE = restore[0];
+        PUT = restore[1];
+        GET = restore[2];
+        
         for(i=0;i<HACKED_ENTRIES;i++){
                 ((unsigned long *)the_syscall_table)[restore[i]] = (unsigned long)new_sys_call_array[i];
         }

@@ -38,7 +38,7 @@ clean:
 	rm message-service/singlefile-FS/singlefilemakefs
 
 user:
-	./message-service/system-call/user/user
+	./message-service/system-call/user/user $(shell sudo cat /sys/module/the_message_service/parameters/PUT) $(shell sudo cat /sys/module/the_message_service/parameters/GET) $(shell sudo cat /sys/module/the_message_service/parameters/INVALIDATE)
 
 mount-all:
 	make create-fs
