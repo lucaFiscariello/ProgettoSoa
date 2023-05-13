@@ -77,16 +77,10 @@ void flush_device_metablk(){
     bh = (struct buffer_head *)sb_bread(block_device->bd_super, POS_META_BLOCK);
       
     if (bh->b_data != NULL){
-                
-        //Aggiorno bit map segnalando quali nodi sono stati invalidati
-        while(head->next != NULL && head->block != BLOCK_ERROR ){
+
+        memcpy( bh->b_data,meta_block_rcu, sizeof(struct meta_block_rcu));    
+        kfree(meta_block_rcu->headInvalidBlock);
             
-            set_bit(head->block,meta_block_rcu);
-            head = head->next;
-
-        }
-
-        memcpy( bh->b_data,meta_block_rcu, sizeof(struct meta_block_rcu));        
     }
 
     brelse(bh);

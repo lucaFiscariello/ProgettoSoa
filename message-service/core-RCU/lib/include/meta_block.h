@@ -19,8 +19,9 @@
     if(get_block_device_AfterMount()==NULL)\
         return ENODEV;
 
-#define set_bit(pos,meta_block)    ( meta_block->bitMap[pos/BIT_INT] |= (pos%BIT_INT) )
-#define is_invalid(pos,meta_block) ( meta_block->bitMap[pos/BIT_INT] & (1 << (pos/BIT_INT)) )
+#define set_bit(pos,meta_block)      ( meta_block->bitMap[pos/BIT_INT] |=  (1 << (pos%BIT_INT)) )
+#define is_invalid(pos,meta_block)   ( meta_block->bitMap[pos/BIT_INT] &   (1 << (pos%BIT_INT)) )
+#define clear_bit(pos,meta_block)    ( meta_block->bitMap[pos/BIT_INT] &= ~(1 << (pos%BIT_INT)) )
 
 /**
  * Tale struttura implementa il "meta blocco" ovvero un blocco di dati memorizzato nel device è che mantiene una serie di 

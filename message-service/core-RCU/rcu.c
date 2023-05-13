@@ -18,7 +18,11 @@
 
 int read_block_rcu(int block_to_read, struct block *block)
 {
-   return read(block_to_read, block);
+        
+    struct meta_block_rcu *meta_block_rcu = read_ram_metablk();
+    check_block_validity(block_to_read,meta_block_rcu);
+
+    return read(block_to_read, block);
 
 }
 
@@ -42,6 +46,7 @@ int write_rcu(char *block_data)
     int block_to_write;
     int block_to_update;
 
+
     meta_block_rcu = read_ram_metablk();
     block_to_write = get_next_free_block();
 
@@ -59,11 +64,13 @@ int write_rcu(char *block_data)
     block->next_block = BLOCK_ERROR;
     block->pred_block = block_to_update;
     pred_block->next_block = block_to_write;
-    meta_block_rcu->lastWriteBlock = block_to_write;
     strncpy(block->data, block_data, DIM_DATA_BLOCK);
 
     //acquisisco lock in scrittura
     lock(meta_block_rcu->write_lock);
+
+    //Aggiorno metablocco indicando l'ultimo nodo aggiornato
+    meta_block_rcu->lastWriteBlock = block_to_write;
 
     //chiamo api basso livello per scrivere nuovo blocco
     write(block_to_write, block);
@@ -71,6 +78,11 @@ int write_rcu(char *block_data)
     //chiamo api basso livello per aggiornare blocco scritto temporalmente prima e implementare lista doppiamente collegata
     write(block_to_update, pred_block);
 
+    increment_dim_file(strlen(block_data)+1);
+
+    //Azzero nella bitmap di tutti i nodi il bit corrispondente al nodo appena scritto, il quale ora è valido
+    clear_bit(block_to_write,meta_block_rcu);
+    
     unlock(meta_block_rcu->write_lock);
 
     return block_to_write;
@@ -102,11 +114,9 @@ int invalidate_rcu(int block_to_invalidate){
     pred_block = kmalloc(DIM_BLOCK, GFP_KERNEL);
     next_block = kmalloc(DIM_BLOCK, GFP_KERNEL);
     new_invalid_block = kmalloc(sizeof(struct invalid_block),GFP_KERNEL);
-    
 
     check_return_read(read(block_to_invalidate,block));
     check_block_validity(block_to_invalidate,meta_block_rcu);
-
 
     //individuo i blocchi scritti prima e dopo il blocco da invalidare
     block_update_pred = block->pred_block;
@@ -123,11 +133,13 @@ int invalidate_rcu(int block_to_invalidate){
     //creo nuovo nodo della linked list contenente il blocco invalidato
     new_invalid_block->block = block_to_invalidate;
     new_invalid_block->next = meta_block_rcu->headInvalidBlock;
-    meta_block_rcu->headInvalidBlock = new_invalid_block;
-    meta_block_rcu->invalidBlocksNumber++;
 
     // acquisisco lock in scrittura
     lock(meta_block_rcu->write_lock);
+
+    //Aggiorno lista dei nodi non validi nel metablocco
+    meta_block_rcu->headInvalidBlock = new_invalid_block;
+    meta_block_rcu->invalidBlocksNumber++;
 
     // aggiorno tutti metadati dei 3 blocchi toccati
     write(block_to_invalidate, block);
@@ -135,6 +147,9 @@ int invalidate_rcu(int block_to_invalidate){
     write(block_update_pred,pred_block);
 
     decrement_dim_file(strlen(block->data)+1);
+
+    //Alzo a 1 il bit nella bitmap nella posizione del nodo appena invalidato
+    set_bit(block_to_invalidate,meta_block_rcu);
 
     unlock(meta_block_rcu->write_lock);
 

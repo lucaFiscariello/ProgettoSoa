@@ -38,10 +38,6 @@ __SYSCALL_DEFINEx(2, _put_data, char*, source,size_t, size){
         copy_from_user(kernel_buffer, source, size);
         
         ret = write_rcu(kernel_buffer);
-
-        if(ret>0)
-           increment_dim_file(size+1);
-
 	return  ret;
 	
 }

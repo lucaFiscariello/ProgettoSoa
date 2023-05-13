@@ -31,12 +31,17 @@ int main(int argc, char** argv){
 	char* testoletto = malloc(sizeof(char)*15);
 
 	int offset = put_data(testo,15);
+	printf("scrittura 1 a offset %d",offset);
+
 	int offset2 = put_data(testo2,15);
+	printf("scrittura 2 a offset %d",offset2);
+
 	invalidate_data(offset);
+	printf("invalidazione a offset %d",offset);
 
 	get_data(offset2,testoletto,15);
 
-	printf("letto %s",testoletto);
+	printf("letto %s\n",testoletto);
 
 
 	return 0;

@@ -73,7 +73,6 @@ int read( int block_to_read,struct block* block){
     bh = (struct buffer_head *)sb_bread(block_device->bd_super, block_to_read);
 
     check_block_index(block_to_read,meta_block_rcu);
-    check_block_validity(block_to_read,meta_block_rcu);
 
     if (bh->b_data != NULL){ 
 
@@ -128,6 +127,8 @@ int read_all_block(char* data){
 
         // Scorro la lista dei blocchi validi seguendo l'ordine di consegna
         while (temp_block->next_block != BLOCK_ERROR){
+
+            printk("nella read leggo blocco: %d\n",temp_block_to_read);
 
             temp_block_to_read = temp_block->next_block;
 
