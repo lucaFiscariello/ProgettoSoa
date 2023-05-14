@@ -73,6 +73,7 @@ int read( int block_to_read,struct block* block){
     bh = (struct buffer_head *)sb_bread(block_device->bd_super, block_to_read);
 
     check_block_index(block_to_read,meta_block_rcu);
+    check_buffer_head(bh);
 
     if (bh->b_data != NULL){ 
 
@@ -82,6 +83,10 @@ int read( int block_to_read,struct block* block){
         rcu_read_unlock(); 
 
     }
+
+#if SYN_PUT_DATA
+    sync_dirty_buffer(bh);
+#endif
 
     brelse(bh);
 
@@ -112,15 +117,18 @@ int read_all_block(char* data){
     temp_block_to_read = meta_block_rcu->firstBlock;
     temp_block = kmalloc(DIM_BLOCK, GFP_KERNEL);
 
+    bh = (struct buffer_head *)sb_bread(block_device->bd_super, temp_block_to_read);
+    check_buffer_head(bh);
+
     //Segnalo presenza di un lettore a eventuali scrittori
     rcu_read_lock();
     
     // Leggo primo blocco valido
-    bh = (struct buffer_head *)sb_bread(block_device->bd_super, temp_block_to_read);
     temp = (void*) rcu_dereference(bh->b_data);
 
     if (temp != NULL){ 
 
+        // Concateno tutti i dati letti in un unico buffer
         memcpy( temp_block,temp, DIM_BLOCK);
         concat_data(data,temp_block);
         brelse(bh);
@@ -128,13 +136,12 @@ int read_all_block(char* data){
         // Scorro la lista dei blocchi validi seguendo l'ordine di consegna
         while (temp_block->next_block != BLOCK_ERROR){
 
-            printk("nella read leggo blocco: %d\n",temp_block_to_read);
-
             temp_block_to_read = temp_block->next_block;
 
             bh = (struct buffer_head *)sb_bread(block_device->bd_super, temp_block_to_read);
-            temp = (void*) rcu_dereference(bh->b_data);
+            check_bh_and_unlock(bh);
 
+            temp = (void*) rcu_dereference(bh->b_data);
 
             if (temp != NULL){ 
 

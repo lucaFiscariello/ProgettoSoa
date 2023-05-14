@@ -6,6 +6,7 @@
 
 #define ENODATA -2
 #define LOCKERROR -3
+#define BHERROR -5
 #define concat_data(data,temp_block)\
    strcat(data,temp_block->data);\
    strcat(data,"\n");\
@@ -21,6 +22,16 @@
 #define check_block_index(block,meta_block_rcu)\
    if(block<0 || block>meta_block_rcu->blocksNumber)\
         return ENODATA;
+
+#define check_buffer_head(bh)\
+   if(!bh)\
+      return BHERROR;
+
+#define check_bh_and_unlock(bh)\
+   if(!bh){\
+      rcu_read_unlock();\
+      return BHERROR;\
+   }
 
 
 int get_next_free_block(void);

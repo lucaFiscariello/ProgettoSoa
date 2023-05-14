@@ -1,4 +1,5 @@
 #include <linux/init.h>
+#include <linux/fcntl.h>
 #include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/timekeeping.h>
@@ -113,6 +114,31 @@ struct dentry *onefilefs_lookup(struct inode *parent_inode, struct dentry *child
 
 }
 
+int onefilefs_open(struct inode *inode, struct file *filp){
+	
+    check_mount();
+
+	// incremento usage count
+	try_module_get(THIS_MODULE);
+
+    //non è possibile effettuare operazioni di scrittura
+	if ((filp->f_flags & O_ACCMODE) == O_WRONLY || (filp->f_flags & O_ACCMODE) == O_RDWR){
+		return WRITE_ERROR;
+	}
+
+	return 0;
+}
+
+int onefilefs_release(struct inode *inode, struct file *filp){
+
+	check_mount();
+	
+	// decremento usage count
+	module_put(THIS_MODULE);
+
+	return 0;
+}
+
 //look up goes in the inode operations
 const struct inode_operations onefilefs_inode_ops = {
     .lookup = onefilefs_lookup,
@@ -121,4 +147,6 @@ const struct inode_operations onefilefs_inode_ops = {
 const struct file_operations onefilefs_file_operations = {
     .owner = THIS_MODULE,
     .read = onefilefs_read,
+    .open = onefilefs_open,
+	.release = onefilefs_release,
 };
