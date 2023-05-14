@@ -4,6 +4,7 @@ num_block= 100
 all:
 	gcc message-service/singlefile-FS/singlefilemakefs.c -o message-service/singlefile-FS/singlefilemakefs
 	gcc message-service/system-call/user/user.c -o message-service/system-call/user/user
+	gcc message-service/system-call/user/test.c -lpthread -o message-service/system-call/user/test
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD)/Linux-sys_call_table-discoverer-master modules 
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD)/message-service modules 
 
@@ -39,6 +40,9 @@ clean:
 
 user:
 	./message-service/system-call/user/user $(shell sudo cat /sys/module/the_message_service/parameters/PUT) $(shell sudo cat /sys/module/the_message_service/parameters/GET) $(shell sudo cat /sys/module/the_message_service/parameters/INVALIDATE)
+
+test:
+	./message-service/system-call/user/test $(shell sudo cat /sys/module/the_message_service/parameters/PUT) $(shell sudo cat /sys/module/the_message_service/parameters/GET) $(shell sudo cat /sys/module/the_message_service/parameters/INVALIDATE)
 
 mount-all:
 	make create-fs

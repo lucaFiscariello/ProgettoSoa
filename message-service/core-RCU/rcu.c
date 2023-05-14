@@ -46,8 +46,11 @@ int write_rcu(char *block_data)
     int block_to_write;
     int block_to_update;
 
-
     meta_block_rcu = read_ram_metablk();
+
+    //acquisisco lock in scrittura
+    lock(meta_block_rcu->write_lock);
+
     block_to_write = get_next_free_block();
 
     block = kmalloc(DIM_BLOCK, GFP_KERNEL);
@@ -66,8 +69,7 @@ int write_rcu(char *block_data)
     pred_block->next_block = block_to_write;
     strncpy(block->data, block_data, DIM_DATA_BLOCK);
 
-    //acquisisco lock in scrittura
-    lock(meta_block_rcu->write_lock);
+    printk("entro sezione critica per scrivere in : %d\n",block_to_write);
 
     //Aggiorno metablocco indicando l'ultimo nodo aggiornato
     meta_block_rcu->lastWriteBlock = block_to_write;

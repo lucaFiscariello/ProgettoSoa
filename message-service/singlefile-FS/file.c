@@ -25,6 +25,7 @@
 */
 ssize_t onefilefs_read(struct file * filp, char __user * buf, size_t len, loff_t * off) {
 
+    check_mount();
     
     char* kernel_buffer;
     int ret;

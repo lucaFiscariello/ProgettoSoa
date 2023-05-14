@@ -8,7 +8,7 @@
 #define VALID_BLOCK 1
 #define INVALID_BLOCK 0
 #define BLOCK_ERROR -1
-#define unlock(lock_element) (lock_element=ZERO_WRITER)
+#define unlock(lock_element) (__sync_val_compare_and_swap(&lock_element,LOCK_WRITER,ZERO_WRITER))
 
 #define lock(lock_element) \
     int old_value = __sync_val_compare_and_swap(&lock_element,ZERO_WRITER,LOCK_WRITER);\
