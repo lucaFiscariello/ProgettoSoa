@@ -1,8 +1,7 @@
 /**
  * In questo file è contenuto il codice utente che testa le system call in maniera più elaborata considerando la concorrenza tra thread.
  * In particolare vengono lanciati un certo numero di thread che eseguono in concorrenza letture, scritture, invalidazioni.
- * Il test può essere suddiviso logicamente in 3 fasi:
- * 	- inizializzazione: vengono invalidati tutti i blocchi del device per creare un ambiente di esecuzione riproducibile
+ * Il test può essere suddiviso logicamente in 2 fasi:
  *	- esecuzione: si lanciano le operazioni le scrittura,lettura e invalidazione in maniera concorrente
  *	- check: al termine delle operazioni concorrenti si verifica , usando appropriate strutture dati, se è avvenuta correttamente anche solo una lettura 
  *	  di un blocco che è stato invalidato ma mai sovrascritto. Se si verifica uno scenario di questo tipo si è verificato un errore.
@@ -106,8 +105,10 @@ void *thread_put(void *vargp)
 			add_id_block_write(ret);
 
 		set_color_yellow();
-		printf("%s\n",buffer);
+		printf("%s. Scritto blocco con id: %d.\n",buffer,ret);
 		set_color_default();
+		
+		free(buffer);
 
 	}
 
@@ -137,6 +138,8 @@ void *thread_get(void *vargp)
 		set_color_green();
 		printf("Thread con id %d legge blocco a offset %d: %s\n",*myid,offset,buffer);
 		set_color_default();
+		
+		free(buffer);
 
 	}
 
@@ -155,7 +158,7 @@ void *thread_invalidate(void *vargp)
 	pthread_barrier_wait(&barrier);
 
 	for(int i =0; i<NUM_OP_I; i++){
-		int offset = rand() % NUM_BLOCK + 1;
+		int offset = rand() % NUM_BLOCK + 3;
 		ret = invalidate_data(offset);
 
 		if(ret>0)
@@ -202,15 +205,6 @@ int check_test(){
 	return 1;
 }
 
-//Invalida tutti i blocchi del device per creare un ambiente di test riproducibile
-void inizialize_test(){
-
-	for(int i =3; i<NUM_BLOCK;i++){
-		invalidate_data(i);
-	}
-
-
-}
 
 int main(int argc, char** argv){
     
@@ -222,7 +216,6 @@ int main(int argc, char** argv){
 	count = NUM_READER +  NUM_WRITER + NUM_INVALIDATOR;
 
 	pthread_barrier_init(&barrier, NULL, count);
-	inizialize_test();
 
 	//Strutture per assegnare id ai thread mandati in esecuzione
  	pthread_t thread_id_w[NUM_WRITER];

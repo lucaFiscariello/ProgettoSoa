@@ -36,7 +36,15 @@ ssize_t onefilefs_read(struct file * filp, char __user * buf, size_t len, loff_t
         //Alla prima invocazione della funzione leggo tutti i blocchi e li memorizzo in un buffer temporaneo
         kernel_buffer = kmalloc(len,GFP_KERNEL);
         read_all_block_rcu(kernel_buffer);
-        filp->private_data = kernel_buffer;
+        
+        //Verifico se sono presenti dati da leggere
+        if(strlen(kernel_buffer) == 0){
+            kfree(kernel_buffer);
+            return 0;
+        }else{
+        	filp->private_data = kernel_buffer;
+        }
+        
 
     }else{
 

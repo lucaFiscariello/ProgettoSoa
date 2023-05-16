@@ -129,6 +129,7 @@ int read_all_block(char* data){
     if (temp != NULL){ 
 
         // Concateno tutti i dati letti in un unico buffer
+        temp_block = kmalloc(DIM_BLOCK, GFP_KERNEL);
         memcpy( temp_block,temp, DIM_BLOCK);
         concat_data(data,temp_block);
         brelse(bh);

@@ -37,7 +37,7 @@ int read_all_block_rcu(char *block_data)
  *  - prendere il lock in scrittura
  *  - chiamare le api di più basso livello per la scrittura effettiva del blocco che sfrutta rcu
 */
-int write_rcu(char *block_data)
+int write_rcu(char *block_data,int size)
 {
 
     struct meta_block_rcu *meta_block_rcu;
@@ -67,7 +67,7 @@ int write_rcu(char *block_data)
     block->next_block = BLOCK_ERROR;
     block->pred_block = block_to_update;
     pred_block->next_block = block_to_write;
-    strncpy(block->data, block_data, DIM_DATA_BLOCK);
+    strncpy(block->data, block_data, size);
 
     printk("entro sezione critica per scrivere in : %d\n",block_to_write);
 
@@ -129,15 +129,15 @@ int invalidate_rcu(int block_to_invalidate){
 
     block->validity = INVALID_BLOCK;
 
+    // acquisisco lock in scrittura
+    lock(meta_block_rcu->write_lock);
+
     //aggiorno i metadati dei blocchi in modo da cancellare logicamente nella lista doppiamente collegata di blocchi validi il blocco invalidato
     update_pointer_onInvalidate(pred_block,block_update_next,next_block,block_update_pred,meta_block_rcu);
 
     //creo nuovo nodo della linked list contenente il blocco invalidato
     new_invalid_block->block = block_to_invalidate;
     new_invalid_block->next = meta_block_rcu->headInvalidBlock;
-
-    // acquisisco lock in scrittura
-    lock(meta_block_rcu->write_lock);
 
     //Aggiorno lista dei nodi non validi nel metablocco
     meta_block_rcu->headInvalidBlock = new_invalid_block;

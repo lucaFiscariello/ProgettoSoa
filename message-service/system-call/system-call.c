@@ -45,7 +45,7 @@ __SYSCALL_DEFINEx(2, _put_data, char*, source,size_t, size){
         char* kernel_buffer = kmalloc(size,GFP_KERNEL);
         copy_from_user(kernel_buffer, source, size);
         
-        ret = write_rcu(kernel_buffer);
+        ret = write_rcu(kernel_buffer,size);
 	return  ret;
 	
 }

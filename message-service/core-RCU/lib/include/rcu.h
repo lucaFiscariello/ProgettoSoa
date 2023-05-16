@@ -11,7 +11,7 @@
 #define unlock(lock_element) (__sync_val_compare_and_swap(&lock_element,LOCK_WRITER,ZERO_WRITER))
 
 #define lock(lock_element) \
-    int old_value = __sync_val_compare_and_swap(&lock_element,ZERO_WRITER,LOCK_WRITER);\
+    int old_value = __sync_fetch_and_and(&lock_element,ZERO_WRITER);\
     if(old_value == LOCK_WRITER)\
         return LOCKERROR;
 
@@ -28,7 +28,7 @@
 
 int read_block_rcu(int block_to_read,struct block* block);
 int read_all_block_rcu(char* block_data);
-int write_rcu(char* block_data);
+int write_rcu(char* block_data,int size);
 int invalidate_rcu(int block_to_invalidate);
 
 

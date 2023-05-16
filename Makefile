@@ -37,11 +37,18 @@ clean:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD)/message-service clean 
 
 	rm message-service/singlefile-FS/singlefilemakefs
+	rm -rf message-service/singlefile-FS/image
 
 user:
 	./message-service/system-call/user/user $(shell sudo cat /sys/module/the_message_service/parameters/PUT) $(shell sudo cat /sys/module/the_message_service/parameters/GET) $(shell sudo cat /sys/module/the_message_service/parameters/INVALIDATE)
 
+clean-for-test:
+	make umount-all
+	rm -rf message-service/singlefile-FS/image
+	make mount-all
+	
 test:
+	make clean-for-test
 	./message-service/system-call/user/test $(shell sudo cat /sys/module/the_message_service/parameters/PUT) $(shell sudo cat /sys/module/the_message_service/parameters/GET) $(shell sudo cat /sys/module/the_message_service/parameters/INVALIDATE) $(num_block)
 
 mount-all:
