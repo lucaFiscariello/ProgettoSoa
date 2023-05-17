@@ -8,12 +8,17 @@
 #define VALID_BLOCK 1
 #define INVALID_BLOCK 0
 #define BLOCK_ERROR -1
+
 #define unlock(lock_element) __sync_fetch_and_and(&lock_element,ZERO_WRITER)
 
 #define lock(lock_element) \
     int old_value = (__sync_val_compare_and_swap(&lock_element,ZERO_WRITER,LOCK_WRITER));\
     if(old_value == LOCK_WRITER)\
         return LOCKERROR;
+
+#define increment_nex_free_block(metablock)\
+	if(metablock->nextFreeBlock +1< metablock->blocksNumber)\
+	   metablock->nextFreeBlock++;
 
 #define update_pointer_onInvalidate(pred_block,block_update_next,next_block,block_update_pred,meta_block_rcu) \
     if(pred_block !=NULL) pred_block->next_block = block_update_next;\

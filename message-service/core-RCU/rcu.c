@@ -63,7 +63,7 @@ int write_rcu(char *block_data,int size)
     
     //Aggiorno metablocco indicando l'ultimo blocco scritto e il prossimo libero
     meta_block_rcu->lastWriteBlock = block_to_write;
-    meta_block_rcu->nextFreeBlock++;
+    increment_nex_free_block(meta_block_rcu);
     
     increment_dim_file(strlen(block_data)+1);
 
