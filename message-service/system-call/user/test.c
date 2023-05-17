@@ -1,7 +1,8 @@
 /**
  * In questo file è contenuto il codice utente che testa le system call in maniera più elaborata considerando la concorrenza tra thread.
  * In particolare vengono lanciati un certo numero di thread che eseguono in concorrenza letture, scritture, invalidazioni.
- * Il test può essere suddiviso logicamente in 2 fasi:
+ * Il test può essere suddiviso logicamente in 3 fasi:
+ * 	- inizializzazione: vengono invalidati tutti i blocchi del device per creare un ambiente di esecuzione riproducibile
  *	- esecuzione: si lanciano le operazioni le scrittura,lettura e invalidazione in maniera concorrente
  *	- check: al termine delle operazioni concorrenti si verifica , usando appropriate strutture dati, se è avvenuta correttamente anche solo una lettura 
  *	  di un blocco che è stato invalidato ma mai sovrascritto. Se si verifica uno scenario di questo tipo si è verificato un errore.
@@ -15,10 +16,10 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 
-#define NUM_WRITER 10
+#define NUM_WRITER 5
 #define NUM_READER 20
 #define NUM_INVALIDATOR 5
-#define NUM_OP_W 5 		//Numero di scritture tentate da ogni writer
+#define NUM_OP_W 10 		//Numero di scritture tentate da ogni writer
 #define NUM_OP_R 5		//Numero di letture tentate da ogni reader
 #define NUM_OP_I 10		//Numero di invalidazioni tentate da ogni invalidatore
 #define DIM_MESSAGE 100
@@ -158,15 +159,18 @@ void *thread_invalidate(void *vargp)
 	pthread_barrier_wait(&barrier);
 
 	for(int i =0; i<NUM_OP_I; i++){
-		int offset = rand() % NUM_BLOCK + 3;
+		int offset = rand() % (NUM_BLOCK-3) + 3;
+		
+		
 		ret = invalidate_data(offset);
 
-		if(ret>0)
-			add_id_block_invalidate(offset);
-
-		set_color_red();
-		printf("Thread con id %d invalida blocco a offset %d\n",*myid,offset);
-		set_color_default();
+		if(ret>=0){
+		   add_id_block_invalidate(offset);
+		   set_color_red();
+		   printf("Thread con id %d invalida blocco a offset %d\n",*myid,offset);
+		   set_color_default();
+		}
+		
 	
 	}
 
@@ -205,6 +209,15 @@ int check_test(){
 	return 1;
 }
 
+//Invalida tutti i blocchi del device per creare un ambiente di test riproducibile
+void inizialize_test(){
+
+	for(int i =3; i<NUM_BLOCK;i++){
+		invalidate_data(i);
+	}
+
+
+}
 
 int main(int argc, char** argv){
     
@@ -216,6 +229,7 @@ int main(int argc, char** argv){
 	count = NUM_READER +  NUM_WRITER + NUM_INVALIDATOR;
 
 	pthread_barrier_init(&barrier, NULL, count);
+	//inizialize_test();
 
 	//Strutture per assegnare id ai thread mandati in esecuzione
  	pthread_t thread_id_w[NUM_WRITER];

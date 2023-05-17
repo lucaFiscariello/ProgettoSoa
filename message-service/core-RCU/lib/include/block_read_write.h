@@ -14,6 +14,19 @@
 #define check_return_read(ret)\
    if(ret == ENODATA)\
       return ENODATA;
+      
+#define check_return_read_and_unlock(ret,lock_element)\
+   if(ret < 0){\
+      unlock(lock_element);\
+      return 0;\
+     }
+
+
+#define check_return_write_and_unlock(ret,lock_element)\
+   if(ret < 0){\
+      unlock(lock_element);\
+      return ret;\
+   }
 
 #define check_block_validity(block_to_read,meta_block_rcu)\
    if(is_invalid(block_to_read,meta_block_rcu))\

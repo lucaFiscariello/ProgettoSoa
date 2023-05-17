@@ -16,26 +16,12 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 
-int read_block_rcu(int block_to_read, struct block *block)
-{
-        
-    struct meta_block_rcu *meta_block_rcu = read_ram_metablk();
-    check_block_validity(block_to_read,meta_block_rcu);
-
-    return read(block_to_read, block);
-
-}
-
-int read_all_block_rcu(char *block_data)
-{
-    return read_all_block(block_data);
-}
 
 /**
  * Questa funzione implementa la scrittura di un blocco all'interno del device. Le sue responsabilità sono:
- *  - compilare i metadati del blocco affichè venga costruita correttamente la lista doppiamente collegata dei blocchi validi
+ *  - compilare i metadati del nuovo blocco e dell'ultimo blocco scritto temporalmente affichè venga costruita correttamente la lista doppiamente collegata dei blocchi validi
  *  - prendere il lock in scrittura
- *  - chiamare le api di più basso livello per la scrittura effettiva del blocco che sfrutta rcu
+ *  - chiamare le api di più basso livello per la scrittura effettiva del blocco sul device
 */
 int write_rcu(char *block_data,int size)
 {
@@ -47,44 +33,41 @@ int write_rcu(char *block_data,int size)
     int block_to_update;
 
     meta_block_rcu = read_ram_metablk();
+    block = kmalloc(DIM_BLOCK, GFP_KERNEL);
+    pred_block = kmalloc(DIM_BLOCK, GFP_KERNEL);
 
     //acquisisco lock in scrittura
     lock(meta_block_rcu->write_lock);
 
     block_to_write = get_next_free_block();
-
-    block = kmalloc(DIM_BLOCK, GFP_KERNEL);
-    pred_block = kmalloc(DIM_BLOCK, GFP_KERNEL);
-
-    check_block_index(block_to_write,meta_block_rcu);
-   
     block_to_update = meta_block_rcu->lastWriteBlock;
-    read(block_to_write, block);
-    read(block_to_update, pred_block);
+    
+    check_return_read_and_unlock(read(block_to_write, block),	    meta_block_rcu->write_lock);
+    check_return_read_and_unlock(read(block_to_update, pred_block), meta_block_rcu->write_lock);
 
-    //compilo metadati del blocco
+    //compilo metadati dei blocchi. Collego all'ultimo blocco scritto temporalmente il nuovo blocco
     block->validity = VALID_BLOCK;
     block->next_block = BLOCK_ERROR;
     block->pred_block = block_to_update;
     pred_block->next_block = block_to_write;
     strncpy(block->data, block_data, size);
 
-    printk("entro sezione critica per scrivere in : %d\n",block_to_write);
-
-    //Aggiorno metablocco indicando l'ultimo nodo aggiornato
-    meta_block_rcu->lastWriteBlock = block_to_write;
-
     //chiamo api basso livello per scrivere nuovo blocco
-    write(block_to_write, block);
+    check_return_write_and_unlock( write(block_to_write, block), meta_block_rcu->write_lock);
 
     //chiamo api basso livello per aggiornare blocco scritto temporalmente prima e implementare lista doppiamente collegata
-    write(block_to_update, pred_block);
-
-    increment_dim_file(strlen(block_data)+1);
-
-    //Azzero nella bitmap di tutti i nodi il bit corrispondente al nodo appena scritto, il quale ora è valido
+    check_return_write_and_unlock( write(block_to_update, pred_block), meta_block_rcu->write_lock);
+    
+    //Azzero nella bitmap di tutti i blocchi il bit corrispondente al blocco appena scritto, il quale ora è valido
     clear_bit(block_to_write,meta_block_rcu);
     
+    //Aggiorno metablocco indicando l'ultimo blocco scritto e il prossimo libero
+    meta_block_rcu->lastWriteBlock = block_to_write;
+    meta_block_rcu->nextFreeBlock++;
+    
+    increment_dim_file(strlen(block_data)+1);
+
+
     unlock(meta_block_rcu->write_lock);
 
     return block_to_write;
@@ -117,13 +100,13 @@ int invalidate_rcu(int block_to_invalidate){
     next_block = kmalloc(DIM_BLOCK, GFP_KERNEL);
     new_invalid_block = kmalloc(sizeof(struct invalid_block),GFP_KERNEL);
 
-    check_return_read(read(block_to_invalidate,block));
     check_block_validity(block_to_invalidate,meta_block_rcu);
+    check_return_read(read(block_to_invalidate,block));
 
     //individuo i blocchi scritti prima e dopo il blocco da invalidare
     block_update_pred = block->pred_block;
     block_update_next = block->next_block;
-
+    
     check_return_read(read(block_update_pred,pred_block));
     check_return_read(read(block_update_next,next_block));
 
@@ -144,18 +127,35 @@ int invalidate_rcu(int block_to_invalidate){
     meta_block_rcu->invalidBlocksNumber++;
 
     // aggiorno tutti metadati dei 3 blocchi toccati
-    write(block_to_invalidate, block);
-    write(block_update_next,next_block);
-    write(block_update_pred,pred_block);
-
-    decrement_dim_file(strlen(block->data)+1);
-
+    check_return_write_and_unlock( write(block_to_invalidate, block),	meta_block_rcu->write_lock);
+    check_return_write_and_unlock( write(block_update_next,next_block),	meta_block_rcu->write_lock);
+    check_return_write_and_unlock( write(block_update_pred,pred_block),	meta_block_rcu->write_lock);
+    
     //Alzo a 1 il bit nella bitmap nella posizione del nodo appena invalidato
     set_bit(block_to_invalidate,meta_block_rcu);
+
+    decrement_dim_file(strlen(block->data)+1);
 
     unlock(meta_block_rcu->write_lock);
 
     return 0;
 
+}
+
+
+int read_block_rcu(int block_to_read, struct block *block)
+{
+        
+    struct meta_block_rcu *meta_block_rcu = read_ram_metablk();
+    check_block_index(block_to_read,meta_block_rcu);
+    check_block_validity(block_to_read,meta_block_rcu);
+
+    return read(block_to_read, block);
+
+}
+
+int read_all_block_rcu(char *block_data)
+{
+    return read_all_block(block_data);
 }
 
