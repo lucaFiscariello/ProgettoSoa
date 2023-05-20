@@ -113,7 +113,60 @@ e scorrere la lista di tutti i blocchi, concatenando ad ogni passo il contenuto 
 non verranno presi in considerazione. Il pezzo di codice che effettua lo scorrimento dei blocchi è confinato da una rcu_read_lock() e una rcu_read_unlock().
 Il codice completo della lettura è presente [qui](https://github.com/lucaFiscariello/ProgettoSoa/blob/0024a5ef8ca604a3026442dd7e17773451ac1bc9/message-service/core-RCU/block_read_write.c#LL64C1-L126C1).
 
+## Rcu
+In questa sezione verrà invece chiarita l'implementazione del sotto modulo rcu. Le funzioni che vengono implementate al suo interno vengono direttamente chiamate 
+delle system call e dal driver.
+
+#### Write_rcu
+Questa funzione permette di effettuare la scrittura di un buffer di dati in un blocco libero del device driver.
+Concettualmente l'operazione di scrittura può essere suddivisa nei seguenti passaggi:
+- acquisizione lock in scrittura,
+- creazione nuovo blocco : la creazione del nuovo blocco consiste nell'allocare una struttura di tipo block e compilarla con dati e metadati. In particolare i dati sono passati dal livello utente come parametro , i metadati sono il riferimento al blocco scritto temporalmente prima del blocco corrente. Questa informazione è memorizzata in un campo del metablocco.
+- aggiornamento blocco precedente: poichè è implementata una lista doppiamente collegata bisogna aggiornare il riferimento next del blocco scritto temporalmente prima
+- scrittura del blocco sul device : tale scrittura sfrutta l'api primitiva offerta da block_read_write.
+
+Per l'individuazione della posizione in cui scrivere il blocco vengono utilizzate due iformazioni combinate. Può ossere utilizzato il campo next_free_block del metablocco che indica quale è la prossima posizione libera in cui poter scrivere un valore. Se questo campo restituisce un valore non accettabile allora si pescherà una posizione libera da una linked list che memorizza tutti i blocchi non validi. In particolare la linked list è utilizzata come uno stack, per cui si legge solo il valore in testa. Questo garantisce che le operazioni di scrittura abbiano una complessità costante. Di seguito è riportata un immagine che mostra come sono aggiornati i metadati del blocco in seguito ad un operazione di scrittura.
 
 
+![soaDiagramma drawio (3)](https://github.com/lucaFiscariello/ProgettoSoa/assets/80633764/9ddc4ab7-e98a-4092-8a9c-816f40b78a1c)
+
+#### Read_rcu
+Questa funzione permette di effettuare una lettura di un blocco ad un dato offset. Durante le operazioni di lettura non c'è necessità di aggiornare
+nessuna struttura dati. Pertanto l'operazione di lettura è molto semplice e può essere suddivisa nei seguenti passaggi:
+- check per verificare velidità dell'offset. Si verifica che sia un valore positivo minore nel numero di blocchi totali del device
+- lettura del blocco ad un dato offset tramite api primitiva offerta dal block_read_write.
+- check per verificare la validità del blocco. Se il blocco non è valido è restituito ENODATA.
+Avendo strutturato su più livelli  l'architettura del modulo, l'implementazione della dcrittura è molto snella.
+
+#### Read_all_block_rcu
+La funzione si limita ad invocare la read_all_block() di block_read_write. Non c'è necessità di fare check o gestire metadati e altre informazioni a questo livello 
+
+#### Invalidate_rcu
+L'operazione di invalidazine permette di cacellare logicamente un blocco dal device. La cancellazione concettualmente è attuata in due passaggi: il primo consiste nel modificare il campo validity del blocco alzandolo a 1 e rendendolo di fatto un blocco non valido. Il secondo consiste nell'aggiornare i riferimeni dei blocchi all'interno della lista doppiamente collegata. L'aggiornamento dei riferimenti fa in modo che il nodo scritto temporalmente prima del nodo che è stato invalidato punti al successivo. L'immagine mostra un esempio di invalidazione e di come vengono aggiornati i metadati mantenuti dai blocchi.
+ 
+![soaDiagramma drawio (2)](https://github.com/lucaFiscariello/ProgettoSoa/assets/80633764/6b833024-1c04-47e3-86f0-de30b1550011)
 
 
+## System call
+Grazie all'architettura implementata il codice delle system call diventa molto snello. Le 3 system call richieste non faranno altro che copiare i dati da e verso gli utenti utilizzando la copyfromuser() e la copytouser() per poi chiamare una delle tre funzioni offerte da rcu. In particolare il mapping tra system call e funzioni rcu è il seguente:
+
+| System call  | rcu  |
+| ------------- | ------------- |
+| put_data  | write_rcu  |
+| get_data  | read_rcu  |
+| invalidate_data  | invalidate_rcu  |
+
+## Driver
+Per l'implementazione del driver vale un discorso analogo. In particolare l'implementazione della funzione read utilizza la funzione read_all_block_rcu. 
+L'implementazione della read è fatta in modo tale che la read_all_block_rcu viene invocata una sola volta, in questo modo tutti blocchi validi vengono letti in base all'ordine di consegna. I dati utili di questi blocchi sono concatenati e memorizzati in un unico buffer a livello kernel. In questo modo i dati letto sono conservati localmente e nessun scrittore può causare interferenze. Successivamente i dati letti vengono consegnati all'utente un blocco alla volta di dimensione len.
+
+## Esecuzione codice
+```c 
+
+ make                   #compilare
+ make mount-all         #crea il file system e lo monta, monta tutti i moduli necessari
+ make user              #esegue il codice utente
+ make test              #esegue un test
+ make umount-all        #smonta tutti i moduli
+  
+```
