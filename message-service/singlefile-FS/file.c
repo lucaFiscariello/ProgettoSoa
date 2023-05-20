@@ -24,12 +24,13 @@
  * I dati che sono mantenuti nel buffer temporaneo sono stati privati dei metadati.
 */
 ssize_t onefilefs_read(struct file * filp, char __user * buf, size_t len, loff_t * off) {
-
-    check_mount();
-    
+     
     char* kernel_buffer;
     int ret;
-
+    
+    check_mount();
+    
+    
     // il campo filp->private_data sarà NULL alla prima invocazione della funzione
     if(filp->private_data == NULL){
 
@@ -58,7 +59,6 @@ ssize_t onefilefs_read(struct file * filp, char __user * buf, size_t len, loff_t
     }
 
     //Copio i dati nel buffer utente un blocco alla volta di dimensione "len"
-    filp->private_data;
     ret = copy_to_user(buf,filp->private_data + *off , len);
     *off += len-ret; 
 

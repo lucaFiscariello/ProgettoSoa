@@ -38,12 +38,15 @@ int restore[HACKED_ENTRIES] = {[0 ... (HACKED_ENTRIES-1)] -1};
 
 __SYSCALL_DEFINEx(2, _put_data, char*, source,size_t, size){
 
+        int ret;
+        char* kernel_buffer;
+        
         check_mount();
 
-        int block_number;
-        int ret;
-        char* kernel_buffer = kmalloc(size,GFP_KERNEL);
-        copy_from_user(kernel_buffer, source, size);
+        kernel_buffer = kmalloc(size,GFP_KERNEL);
+        
+        if(copy_from_user(kernel_buffer, source, size))
+           return COPYERROR;
         
         ret = write_rcu(kernel_buffer,size);
 	return  ret;
@@ -52,13 +55,17 @@ __SYSCALL_DEFINEx(2, _put_data, char*, source,size_t, size){
 
 __SYSCALL_DEFINEx(3, _get_data, int, offset, char*, source,size_t, size){
 
+	int ret;
+        struct block* block ;
+        
         check_mount();
 
-        int ret;
-        struct block* block = kmalloc(DIM_BLOCK,GFP_KERNEL);
-        
+        block = kmalloc(DIM_BLOCK,GFP_KERNEL);    
         ret = read_block_rcu(offset,block);
-        copy_to_user(source, block->data, size);
+        check_return_read(ret);
+        
+        if(copy_to_user(source, block->data, size))
+           return COPYERROR;
 
 	return ret;
 	

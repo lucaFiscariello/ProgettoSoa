@@ -29,7 +29,7 @@ module_param(blocks_number, int, 0660);
  *  Tale funzione deve essere invocata nel momento in cui un device è montato per la prima volta in assoluto, in modo da 
  *  formattare correttamente la struttura "meta_block_rcu" e garantire il corretto funzionamento delle API che dipendono da tale blocco.
 */
-void inizialize_meta_block(){
+int inizialize_meta_block(){
     struct buffer_head *bh = NULL;
     struct invalid_block* head;
 
@@ -38,9 +38,10 @@ void inizialize_meta_block(){
 
     //Verifico se il metablocco è stato già inizializzato
     if(meta_block_rcu->already_inizialize)
-        return;
+        return 0;
 
     bh = (struct buffer_head *)sb_bread(block_device->bd_super, POS_META_BLOCK);
+    check_buffer_head(bh);
       
     if (bh->b_data != NULL){
 
@@ -62,6 +63,7 @@ void inizialize_meta_block(){
     }
 
     brelse(bh);
+    return 0;
 }
 
 /**
@@ -69,13 +71,13 @@ void inizialize_meta_block(){
  * Ne consegue che se il meta blocco è soggetto a modifiche è necessario effettuare il flush di tale modifiche anche nel device. 
  * Tale funzione ha proprio questa responsabilità.
 */
-void flush_device_metablk(){
+int flush_device_metablk(){
 
     struct buffer_head *bh = NULL;
-    struct invalid_block* head = meta_block_rcu->headInvalidBlock;
 
     bh = (struct buffer_head *)sb_bread(block_device->bd_super, POS_META_BLOCK);
-      
+    check_buffer_head(bh);
+
     if (bh->b_data != NULL){
 
         memcpy( bh->b_data,meta_block_rcu, sizeof(struct meta_block_rcu));    
@@ -84,6 +86,7 @@ void flush_device_metablk(){
     }
 
     brelse(bh);
+    return 0;
 }
 
 /**
@@ -97,7 +100,8 @@ struct meta_block_rcu* read_device_metablk(){
     struct invalid_block * new_invalid_block;
 
     bh = (struct buffer_head *)sb_bread(block_device->bd_super, POS_META_BLOCK);
-      
+    if(!bh) return NULL;
+
     if (bh->b_data != NULL){ 
 
         
@@ -138,13 +142,14 @@ struct meta_block_rcu* read_ram_metablk(){
  * In seguito ad un operazione di scritture è necessario incrementare il campo nell'inode che contiene la dimensione del file.
  * Questo metodo ha proprio questa responsabilità.
 */
-void increment_dim_file(int write_bytes){
+int increment_dim_file(int write_bytes){
 
     struct buffer_head *bh = NULL;
     struct onefilefs_inode *inode;
     void** temp;
 
     bh = (struct buffer_head *)sb_bread(block_device->bd_super, POS_I_NODE);
+    check_buffer_head(bh);
 
     if (bh->b_data != NULL){ 
         
@@ -153,6 +158,9 @@ void increment_dim_file(int write_bytes){
         inode->file_size = inode->file_size+write_bytes;
 
     }
+
+    brelse(bh);
+    return 0;
      
 }
 
@@ -160,13 +168,14 @@ void increment_dim_file(int write_bytes){
  * In seguito ad un operazione di invalidazione di un blocco è necessario incrementare il campo nell'inode che contiene la dimensione del file.
  * Questo metodo ha proprio questa responsabilità.
 */
-void decrement_dim_file(int bytes){
+int decrement_dim_file(int bytes){
 
     struct buffer_head *bh = NULL;
     struct onefilefs_inode *inode;
     void** temp;
 
     bh = (struct buffer_head *)sb_bread(block_device->bd_super, POS_I_NODE);
+    check_buffer_head(bh);
 
     if (bh->b_data != NULL){ 
         
@@ -175,10 +184,13 @@ void decrement_dim_file(int bytes){
         inode->file_size = inode->file_size-bytes;
 
     }
+
+    brelse(bh);
+    return 0;
 }
 
 
-void set_block_device_onMount(char* devname){
+void set_block_device_onMount(const char* devname){
     block_device= blkdev_get_by_path(devname, FMODE_READ|FMODE_WRITE, NULL);
 }
 

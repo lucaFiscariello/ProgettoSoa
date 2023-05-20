@@ -1,12 +1,14 @@
 
 num_block= 100
+KCPPFLAGS := '-DSYN_PUT_DATA=0'
+
 
 all:
-	gcc message-service/singlefile-FS/singlefilemakefs.c -o message-service/singlefile-FS/singlefilemakefs
+	gcc message-service/singlefile-FS/singlefilemakefs.c -o message-service/singlefile-FS/singlefilemakefs 
 	gcc message-service/system-call/user/user.c -o message-service/system-call/user/user
 	gcc message-service/system-call/user/test.c -lpthread -o message-service/system-call/user/test
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD)/Linux-sys_call_table-discoverer-master modules 
-	make -C /lib/modules/$(shell uname -r)/build M=$(PWD)/message-service modules 
+	make KCPPFLAGS=$(KCPPFLAGS) -C /lib/modules/$(shell uname -r)/build M=$(PWD)/message-service modules 
 
 create-fs:
 	dd bs=4096 count=$(num_block) if=/dev/zero of=message-service/singlefile-FS/image

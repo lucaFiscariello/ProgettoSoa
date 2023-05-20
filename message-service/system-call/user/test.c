@@ -15,6 +15,7 @@
 #include <errno.h>
 #include <sys/mman.h>
 #include <fcntl.h>
+#include <pthread.h>
 
 #define NUM_WRITER 5
 #define NUM_READER 20

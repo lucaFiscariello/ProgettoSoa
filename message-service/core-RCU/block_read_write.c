@@ -21,12 +21,14 @@
  *  - rcu_read_unlock : libera eventuali scrittori in attesa.
 */
 int read( int block_to_read,struct block* block){
-    struct meta_block_rcu *meta_block_rcu;
-    struct buffer_head *bh = NULL;
-    struct block_device *block_device;
-    void* temp;
-    int ret;
 
+    void* temp;
+    
+    struct meta_block_rcu *meta_block_rcu;
+    struct block_device *block_device;
+    struct buffer_head *bh = NULL;
+
+  
     meta_block_rcu= read_ram_metablk();
     block_device = get_block_device_AfterMount();
     bh = (struct buffer_head *)sb_bread(block_device->bd_super, block_to_read);
@@ -61,12 +63,12 @@ int read( int block_to_read,struct block* block){
 */
 int read_all_block(char* data){
 
-    struct buffer_head *bh = NULL;
+    int temp_block_to_read;
+    void* temp;
     struct block *temp_block;
     struct meta_block_rcu *meta_block_rcu;
     struct block_device *block_device;
-    int temp_block_to_read;
-    void* temp;
+    struct buffer_head *bh = NULL;
 
     block_device = get_block_device_AfterMount();
     meta_block_rcu= read_ram_metablk();
@@ -132,10 +134,10 @@ int read_all_block(char* data){
  */
 int write(int block_to_write,struct block* block){
 
-    struct block_device *block_device = get_block_device_AfterMount();
-    struct meta_block_rcu *meta_block_rcu = read_ram_metablk();;
-    struct buffer_head *bh = NULL;
     void* temp;
+    struct block_device *block_device = get_block_device_AfterMount();
+    struct meta_block_rcu *meta_block_rcu = read_ram_metablk();
+    struct buffer_head *bh = NULL;
     
     check_block_index(block_to_write,meta_block_rcu);
     bh = (struct buffer_head *)sb_bread(block_device->bd_super, block_to_write);

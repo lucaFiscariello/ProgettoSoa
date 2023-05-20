@@ -7,13 +7,12 @@
 #define LOCK_WRITER 1
 #define VALID_BLOCK 1
 #define INVALID_BLOCK 0
-#define BLOCK_ERROR -1
+#define ERROR_SIZE -20
 
 #define unlock(lock_element) __sync_fetch_and_and(&lock_element,ZERO_WRITER)
 
 #define lock(lock_element) \
-    int old_value = (__sync_val_compare_and_swap(&lock_element,ZERO_WRITER,LOCK_WRITER));\
-    if(old_value == LOCK_WRITER)\
+    if(__sync_val_compare_and_swap(&lock_element,ZERO_WRITER,LOCK_WRITER) == LOCK_WRITER)\
         return LOCKERROR;
 
 #define increment_nex_free_block(metablock)\
@@ -30,6 +29,12 @@
     else if (block_to_invalidate == meta_block_rcu->lastWriteBlock){\
         meta_block_rcu->lastWriteBlock = block_update_pred;\
     }
+
+#define sanitize_size(size,meta_block)\
+    if(size <0 )\
+        return ERROR_SIZE;\
+    else if((size> DIM_DATA_BLOCK))\
+        size=DIM_DATA_BLOCK;
 
 int read_block_rcu(int block_to_read,struct block* block);
 int read_all_block_rcu(char* block_data);

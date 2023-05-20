@@ -36,6 +36,8 @@ int write_rcu(char *block_data,int size)
     block = kmalloc(DIM_BLOCK, GFP_KERNEL);
     pred_block = kmalloc(DIM_BLOCK, GFP_KERNEL);
 
+    sanitize_size(size,meta_block_rcu);
+
     //acquisisco lock in scrittura
     lock(meta_block_rcu->write_lock);
 
@@ -106,9 +108,9 @@ int invalidate_rcu(int block_to_invalidate){
     //individuo i blocchi scritti prima e dopo il blocco da invalidare
     block_update_pred = block->pred_block;
     block_update_next = block->next_block;
-    
+  
     check_return_read(read(block_update_pred,pred_block));
-    check_return_read(read(block_update_next,next_block));
+    read(block_update_next,next_block);
 
     block->validity = INVALID_BLOCK;
 

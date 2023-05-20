@@ -2,7 +2,6 @@
 #define META
 
 #include <linux/blkdev.h>
-#include "rcu.h"
 #include "../../../singlefile-FS/lib/include/singlefilefs.h"
 
 #define MAX_INVALID_BLOCK (DIM_BLOCK-68)/4
@@ -12,8 +11,10 @@
 #define DIM_META_DATA 12
 #define DIM_DATA_BLOCK 4096 - DIM_META_DATA
 #define DIM_BLOCK 4096
-#define ENODEV -4
 #define INIZIALIZE_META_BLK 1
+#define BLOCK_ERROR -1
+#define BHERROR -5
+#define COPYERROR -15
 
 #define check_mount()\
     if(get_block_device_AfterMount()==NULL)\
@@ -22,6 +23,16 @@
 #define set_bit(pos,meta_block)      ( meta_block->bitMap[pos/BIT_INT] |=  (1 << (pos%BIT_INT)) )
 #define is_invalid(pos,meta_block)   ( meta_block->bitMap[pos/BIT_INT] &   (1 << (pos%BIT_INT)) )
 #define clear_bit(pos,meta_block)    ( meta_block->bitMap[pos/BIT_INT] &= ~(1 << (pos%BIT_INT)) )
+
+#define check_buffer_head(bh)\
+   if(!bh)\
+      return BHERROR;
+
+#define check_bh_and_unlock(bh)\
+   if(!bh){\
+      rcu_read_unlock();\
+      return BHERROR;\
+   }
 
 /**
  * Tale struttura implementa il "meta blocco" ovvero un blocco di dati memorizzato nel device è che mantiene una serie di 
@@ -85,14 +96,14 @@ struct invalid_block {
    struct invalid_block* next;
 };
 
-void inizialize_meta_block(void); 
-void set_block_device_onMount(char* devname);
+int inizialize_meta_block(void); 
+void set_block_device_onMount(const char* devname);
 void set_block_device_onUmount(void);
-void increment_dim_file(int write_bytes);
-void decrement_dim_file(int bytes);
+int increment_dim_file(int write_bytes);
+int decrement_dim_file(int bytes);
 struct block_device * get_block_device_AfterMount(void);
 struct meta_block_rcu* read_ram_metablk(void); 
 struct meta_block_rcu* read_device_metablk(void); 
-void flush_device_metablk(void); 
+int flush_device_metablk(void); 
 
 #endif
