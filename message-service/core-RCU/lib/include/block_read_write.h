@@ -25,8 +25,8 @@
       return ret;\
    }
 
-#define check_block_validity(block_to_read,meta_block_rcu)\
-   if(is_invalid(block_to_read,meta_block_rcu))\
+#define check_block_validity(block)\
+   if(block->validity == INVALID_BLOCK)\
         return ENODATA;
 
 #define check_block_index(block,meta_block_rcu)\

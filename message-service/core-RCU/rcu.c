@@ -102,8 +102,11 @@ int invalidate_rcu(int block_to_invalidate){
     next_block = kmalloc(DIM_BLOCK, GFP_KERNEL);
     new_invalid_block = kmalloc(sizeof(struct invalid_block),GFP_KERNEL);
 
-    check_block_validity(block_to_invalidate,meta_block_rcu);
+    // acquisisco lock in scrittura
+    lock(meta_block_rcu->write_lock);
+
     check_return_read(read(block_to_invalidate,block));
+    check_block_validity(block);
 
     //individuo i blocchi scritti prima e dopo il blocco da invalidare
     block_update_pred = block->pred_block;
@@ -113,9 +116,6 @@ int invalidate_rcu(int block_to_invalidate){
     read(block_update_next,next_block);
 
     block->validity = INVALID_BLOCK;
-
-    // acquisisco lock in scrittura
-    lock(meta_block_rcu->write_lock);
 
     //aggiorno i metadati dei blocchi in modo da cancellare logicamente nella lista doppiamente collegata di blocchi validi il blocco invalidato
     update_pointer_onInvalidate(pred_block,block_update_next,next_block,block_update_pred,meta_block_rcu);
@@ -147,12 +147,14 @@ int invalidate_rcu(int block_to_invalidate){
 
 int read_block_rcu(int block_to_read, struct block *block)
 {
-        
+    int ret;
     struct meta_block_rcu *meta_block_rcu = read_ram_metablk();
-    check_block_index(block_to_read,meta_block_rcu);
-    check_block_validity(block_to_read,meta_block_rcu);
 
-    return read(block_to_read, block);
+    check_block_index(block_to_read,meta_block_rcu);
+    ret = read(block_to_read, block);
+    check_block_validity(block);
+
+    return ret;
 
 }
 
