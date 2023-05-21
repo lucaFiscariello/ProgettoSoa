@@ -162,9 +162,10 @@ Alcune limitazioni:
 > **Warning**
 > Se si esegue il codice all'interno di una macchina virtuale, assicurarsi di non lanciare il codice in una cartella condivisa, altrimenti il make test potrebbe fallire.
 
-Il codice utente implementa una semplice chiamata alle system call call implementate senza considerare la concorrenza tra thread. Il test invece lancia un certo numero di scrittori, lettori e invalidatori in concorrenza. Il test va a buon fine se non si verificano inconsistenze. Un inconsistenza si verifica ad esempio se un lettore riesce a leggere il contenuto di un blocco che è stato invalidato. 
+Il [codice utente](https://github.com/lucaFiscariello/ProgettoSoa/blob/2da9e9c1fd7238f9d1a55887a49642f63cad6277/message-service/system-call/user/user.c) implementa una semplice chiamata alle system call senza considerare la concorrenza tra thread. E' stato implementato anche un [test](https://github.com/lucaFiscariello/ProgettoSoa/blob/2da9e9c1fd7238f9d1a55887a49642f63cad6277/message-service/system-call/user/test.c) che lancia un certo numero di scrittori, lettori e invalidatori in concorrenza. Il test va a buon fine se non si verificano inconsistenze. Un inconsistenza si verifica ad esempio se un lettore riesce a leggere il contenuto di un blocco che è stato invalidato. 
 
 #### Codice utente
+Nel make file sono state attuate tutte le configurazioni del caso. Lanciando i seguenti comandi il codice dovrebbe girare senza problemi.
 ```c 
 
  make                   #per compilare
@@ -173,13 +174,30 @@ Il codice utente implementa una semplice chiamata alle system call call implemen
  cat mount/the-file     #per osservare il contenuto del file
   
 ```
+Se si vogliono eseguire ulteriori prove è possibile modificare 
+[questo codice](https://github.com/lucaFiscariello/ProgettoSoa/blob/2da9e9c1fd7238f9d1a55887a49642f63cad6277/message-service/system-call/user/user.c) ed eseguire i comandi seguenti:
+
+```c 
+
+ make                   #ricompila
+ make user              #esegue il codice utente
+  
+```
+
+
+Volendo è possibile visionare il contenuto di tutto il device tramite il seguente comando:
+```c 
+
+ make print-blocks
+  
+```
 
 #### Test
 Dopo aver eseguito il testo compariranno sulla console dei messaggi che comunicheranno se il test è andato a buon fine oppure no.
 
 ```c 
 
- make test              #esegue un test
- make umount-all        #smonta tutti i moduli
+ make test              #esegue il test
+ make umount-all        #smonta tutti i moduli e il file system
   
 ```
