@@ -100,7 +100,7 @@ void *thread_put(void *vargp)
 	for(int i=0;i<NUM_OP_W;i++){
 
 		char *buffer = (char*)calloc(DIM_MESSAGE ,sizeof(char));
-		sprintf(buffer, "Blocco scritto da thread con id  %d : numero blocco %d/5",*myid, i);
+		sprintf(buffer, "Blocco scritto da thread con id  %d : numero blocco %d/%d",*myid, i,NUM_OP_W);
 		ret = put_data(buffer,strlen(buffer));
 
 		if(ret>0)
@@ -210,15 +210,6 @@ int check_test(){
 	return 1;
 }
 
-//Invalida tutti i blocchi del device per creare un ambiente di test riproducibile
-void inizialize_test(){
-
-	for(int i =3; i<NUM_BLOCK;i++){
-		invalidate_data(i);
-	}
-
-
-}
 
 int main(int argc, char** argv){
     
@@ -229,13 +220,17 @@ int main(int argc, char** argv){
 
 	count = NUM_READER +  NUM_WRITER + NUM_INVALIDATOR;
 
-	pthread_barrier_init(&barrier, NULL, count);
-	//inizialize_test();
-
 	//Strutture per assegnare id ai thread mandati in esecuzione
  	pthread_t thread_id_w[NUM_WRITER];
 	pthread_t thread_id_r[NUM_READER];
 	pthread_t thread_id_i[NUM_INVALIDATOR];
+
+	//Effettuo un certo numero di scritture non in concorrenza
+	pthread_barrier_init(&barrier, NULL, 1);
+	pthread_create(&thread_id_w[0], NULL, thread_put, (void*)&thread_id_w[0]);
+	pthread_join(thread_id_w[0], NULL);
+
+	pthread_barrier_init(&barrier, NULL, count);
 
 	//Creo scrittori
 	for(int i=0; i< NUM_WRITER; i++){
@@ -257,6 +252,7 @@ int main(int argc, char** argv){
 	for(int i=0; i< NUM_WRITER; i++){pthread_join(thread_id_w[i], NULL);}
 	for(int i=0; i< NUM_READER; i++){pthread_join(thread_id_r[i], NULL);}
 	for(int i=0; i< NUM_INVALIDATOR; i++){pthread_join(thread_id_i[i], NULL);}
+	
 	
 	if(check_test()>0){
 		printf("Test andato a buon fine!\n");

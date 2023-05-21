@@ -158,8 +158,14 @@ int read_block_rcu(int block_to_read, struct block *block)
 
 }
 
-int read_all_block_rcu(char *block_data)
-{
+int read_all_block_rcu(char *block_data){
     return read_all_block(block_data);
+}
+
+
+int get_dim_buffer(){
+    struct meta_block_rcu *meta_block_rcu = read_ram_metablk();
+
+    return sizeof(char)*(DIM_DATA_BLOCK+1)*(meta_block_rcu->blocksNumber - meta_block_rcu->invalidBlocksNumber);
 }
 

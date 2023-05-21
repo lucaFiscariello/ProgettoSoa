@@ -30,7 +30,6 @@ module_param(blocks_number, int, 0660);
  *  formattare correttamente la struttura "meta_block_rcu" e garantire il corretto funzionamento delle API che dipendono da tale blocco.
 */
 int inizialize_meta_block(){
-    struct buffer_head *bh = NULL;
     struct invalid_block* head;
 
     meta_block_rcu = kmalloc(sizeof(struct meta_block_rcu),GFP_KERNEL);
@@ -40,34 +39,27 @@ int inizialize_meta_block(){
     if(meta_block_rcu->already_inizialize)
         return 0;
 
-    bh = (struct buffer_head *)sb_bread(block_device->bd_super, POS_META_BLOCK);
-    check_buffer_head(bh);
-      
-    if (bh->b_data != NULL){
+    
+    head = kmalloc(sizeof(struct invalid_block),GFP_KERNEL);
+    head->block = BLOCK_ERROR;
+    head->next = NULL;
 
-        head = kmalloc(sizeof(struct invalid_block),GFP_KERNEL);
-        head->block = BLOCK_ERROR;
-        head->next = NULL;
+    meta_block_rcu->lastWriteBlock = POS_META_BLOCK;
+    meta_block_rcu->nextFreeBlock = POS_META_BLOCK;
+    meta_block_rcu->firstBlock = POS_META_BLOCK+1;
+    meta_block_rcu->already_inizialize = INIZIALIZE_META_BLK;
+    meta_block_rcu->write_lock = ZERO_WRITER;
 
-        meta_block_rcu->lastWriteBlock = POS_META_BLOCK;
-        meta_block_rcu->nextFreeBlock = POS_META_BLOCK;
-        meta_block_rcu->firstBlock = POS_META_BLOCK+1;
-        meta_block_rcu->already_inizialize = INIZIALIZE_META_BLK;
+    meta_block_rcu->blocksNumber = blocks_number;
+    meta_block_rcu->invalidBlocksNumber = 0;
+    meta_block_rcu->headInvalidBlock = head;
 
-        meta_block_rcu->blocksNumber = blocks_number;
-        meta_block_rcu->invalidBlocksNumber = 0;
-        meta_block_rcu->headInvalidBlock = head;
-
-        memcpy( bh->b_data,meta_block_rcu, sizeof(struct meta_block_rcu));        
- 
-    }
-
-    brelse(bh);
+               
     return 0;
 }
 
 /**
- * Il meta blocco è salvato in un blocco del device, tuttavia per motivi di prestazione è mantenuta una copia del meta blocco anche in ram.
+ * Il meta blocco è salvato in un blocco del device, tuttavia è mantenuta una copia anche in ram.
  * Ne consegue che se il meta blocco è soggetto a modifiche è necessario effettuare il flush di tale modifiche anche nel device. 
  * Tale funzione ha proprio questa responsabilità.
 */
@@ -102,9 +94,11 @@ struct meta_block_rcu* read_device_metablk(){
     bh = (struct buffer_head *)sb_bread(block_device->bd_super, POS_META_BLOCK);
     if(!bh) return NULL;
 
+
     if (bh->b_data != NULL){ 
 
-        
+        memcpy(meta_block_rcu, bh->b_data, sizeof(struct meta_block_rcu));        
+
         //Scorro tutta la bitmap mantenuta dal metablocco
         for(int blok_id=0 ; blok_id<meta_block_rcu->blocksNumber; blok_id++){
 
@@ -120,7 +114,6 @@ struct meta_block_rcu* read_device_metablk(){
          
         }
 
-        memcpy(meta_block_rcu, bh->b_data, sizeof(struct meta_block_rcu));        
     }
 
     brelse(bh);

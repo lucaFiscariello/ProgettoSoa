@@ -3,10 +3,8 @@
 
 #include "block_read_write.h"
 
-#define ZERO_WRITER 0
-#define LOCK_WRITER 1
-#define VALID_BLOCK 1
-#define INVALID_BLOCK 0
+#define VALID_BLOCK 0
+#define INVALID_BLOCK 1
 #define ERROR_SIZE -20
 
 #define unlock(lock_element) __sync_fetch_and_and(&lock_element,ZERO_WRITER)
@@ -40,6 +38,7 @@ int read_block_rcu(int block_to_read,struct block* block);
 int read_all_block_rcu(char* block_data);
 int write_rcu(char* block_data,int size);
 int invalidate_rcu(int block_to_invalidate);
+int get_dim_buffer(void);
 
 
 #endif

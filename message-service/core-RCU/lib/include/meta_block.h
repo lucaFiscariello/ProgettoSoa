@@ -15,6 +15,8 @@
 #define BLOCK_ERROR -1
 #define BHERROR -5
 #define COPYERROR -15
+#define ZERO_WRITER 0
+#define LOCK_WRITER 1
 
 #define check_mount()\
     if(get_block_device_AfterMount()==NULL)\
