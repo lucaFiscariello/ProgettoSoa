@@ -26,7 +26,7 @@ di concorrenza. L'idea è che tale componente durante le operazioni di scrittura
 
 Complessivamente l'architettura che si viene a creare con le funzioni implementate da ogni componente è la seguente:
 
-![soaDiagramma drawio (7)](https://github.com/lucaFiscariello/ProgettoSoa/assets/80633764/5af0e0f6-55a0-4410-8111-4a6656962775)
+![soaDiagramma drawio (12)](https://github.com/lucaFiscariello/ProgettoSoa/assets/80633764/d858bfc1-bdbf-455b-98e1-29d2664107da)
 
 
 ## Device file
@@ -97,9 +97,6 @@ Una volta scaduto il greece period il thread scrittore ha la certezza che il buf
   
 ```
 
-#### Read_all_block
-Per la [lettura di tutti i blocchi](https://github.com/lucaFiscariello/ProgettoSoa/blob/0024a5ef8ca604a3026442dd7e17773451ac1bc9/message-service/core-RCU/block_read_write.c#LL64C1-L126C1) in ordine di consegna vengono sfruttati i metadati memorizzati all'interno di ogni blocco. Come specificato in precedenza i metadati di ogni blocco permettono di creare una lista doppiamente collegata. Il lettore pertanto non dovrà fare altro che leggere l'id del primo blocco valido dal metablocco e scorrere la lista di tutti i blocchi, concatenando ad ogni passo il contenuto di un blocco in un buffer. Nel buffer finale verranno mantenuti solo dati utili, tutti i metadati non verranno presi in considerazione. Il pezzo di codice che effettua lo scorrimento dei blocchi è confinato da una *rcu_read_lock()* e una *rcu_read_unlock()*.
-
 ## Rcu
 In questa sezione verrà invece chiarita l'implementazione del sotto-modulo [rcu](https://github.com/lucaFiscariello/ProgettoSoa/blob/0024a5ef8ca604a3026442dd7e17773451ac1bc9/message-service/core-RCU/rcu.c#LL26C1-L76C2). Le funzioni che vengono implementate al suo interno vengono direttamente chiamate delle system call e dal driver.
 
@@ -123,9 +120,6 @@ nessuna struttura dati. Pertanto l'operazione di lettura è molto semplice e pu�
 - lettura del blocco ad un dato offset tramite api primitiva offerta dal block_read_write.
 - check per verificare la validità del blocco. Se il blocco non è valido è restituito ENODATA.
 
-#### Read_all_block_rcu
-La funzione [read_all_block_rcu](https://github.com/lucaFiscariello/ProgettoSoa/blob/0024a5ef8ca604a3026442dd7e17773451ac1bc9/message-service/core-RCU/rcu.c#LL161C1-L165C1) si limita ad invocare la *read_all_block()* del sotto-modulo block_read_write. Non c'è necessità di fare check o gestire metadati e altre informazioni a questo livello.
-
 #### Invalidate_rcu
 [L'operazione di invalidazine](https://github.com/lucaFiscariello/ProgettoSoa/blob/0024a5ef8ca604a3026442dd7e17773451ac1bc9/message-service/core-RCU/rcu.c#LL89C1-L146C1) permette di cacellare logicamente un blocco dal device. La cancellazione concettualmente è attuata in due passaggi: il primo consiste nel modificare il campo validity del blocco alzandolo a 1 e rendendolo di fatto un blocco non valido (si aggiorna anche la bitmap nel metablocco). Il secondo consiste nell'aggiornare i riferimeni dei blocchi all'interno della lista doppiamente collegata. L'aggiornamento dei riferimenti fa in modo che il nodo scritto temporalmente prima del nodo che è stato invalidato punti al successivo. L'immagine mostra un esempio di invalidazione e di come vengono aggiornati i metadati mantenuti dai blocchi. In verde sono mostrati i blocchi validi e in rosso quelli non validi.
  
@@ -144,8 +138,7 @@ Grazie all'architettura implementata il codice delle system call diventa molto s
 Per l'implementazione del driver vale un discorso analogo. Sono state implementate le funzioni di [read](https://github.com/lucaFiscariello/ProgettoSoa/blob/0024a5ef8ca604a3026442dd7e17773451ac1bc9/message-service/singlefile-FS/file.c#LL26C1-L68C1),
 [open](https://github.com/lucaFiscariello/ProgettoSoa/blob/364bf3624d89b7e405f7b609209dac45e9be72b2/message-service/singlefile-FS/file.c#LL126C1-L140C1) e 
 [release](https://github.com/lucaFiscariello/ProgettoSoa/blob/364bf3624d89b7e405f7b609209dac45e9be72b2/message-service/singlefile-FS/file.c#LL141C1-L149C2). Tali funzioni permettono di accedere al contenuto dell'unico file del file system montato sul device.
-In particolare l'implementazione della funzione read utilizza la funzione *read_all_block_rcu()* offerta dal sotto-modulo rcu. 
-L'implementazione della read è fatta in modo tale che la *read_all_block_rcu()* viene invocata una sola volta, in questo modo tutti blocchi validi vengono letti in base all'ordine di consegna. I dati utili di questi blocchi sono concatenati e memorizzati in un unico buffer a livello kernel. I dati letti sono conservati localmente e nessun scrittore può causare interferenze. Successivamente i dati letti vengono consegnati all'utente un blocco alla volta.
+In particolare per l'implementazione della read , che permette la lettura di tutti i blocchi in ordine di consegna, vengono sfruttati i metadati memorizzati all'interno di ogni blocco. Come specificato in precedenza i metadati di ogni blocco permettono di creare una lista doppiamente collegata. Il lettore pertanto non dovrà far altro che leggere l'id del primo blocco valido dal metablocco e scorrere la lista di tutti i blocchi, concatenando ad ogni passo il contenuto di un blocco in un buffer. Nel buffer finale verranno mantenuti solo dati utili, tutti i metadati non verranno presi in considerazione. Il pezzo di codice che effettua lo scorrimento dei blocchi è confinato da una *rcu_read_lock()* e una *rcu_read_unlock()*. 
 
 ## In sintesi
 La soluzione proposta ha le seguenti caratteristiche:
