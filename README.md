@@ -1,7 +1,7 @@
 # ProgettoSoa
 
 ## Introduzione
-Il progetto prevede la realizzazione di 3 system call file system dipendent e un driver che è invece supportato dal VFS. Le operazioni da implementare dovranno  leggere e scrivere blocchi di dati su un block device. Nello specifico il block device utilizzato è un file all'interno del quale verrà montato un file system contenente un unico file.Il driver implementato offre le funzionalità per leggere il contenuto dell'unico file, mentre le system call permettono di modificare il contenuto dei blocchi che mantengono a tutti gli effetti il body dell'unico file del file system montato sul device.
+Il progetto prevede la realizzazione di 3 system call file system dipendent e un driver che è invece supportato dal VFS. Le operazioni da implementare dovranno  leggere e scrivere blocchi di dati su un block device. Nello specifico il block device utilizzato è un file all'interno del quale verrà montato un file system contenente un unico file. Il driver implementato offre le funzionalità per leggere il contenuto dell'unico file, mentre le system call permettono di modificare il contenuto dei blocchi che mantengono a tutti gli effetti il body dell'unico file del file system montato sul device.
 
 ## Architettura
 Per il raggiungimento di tali obiettivi è stata pensata un architettura del modulo composta da 3 elementi implementati in altrettante directory :
@@ -30,7 +30,7 @@ Complessivamente l'architettura che si viene a creare con le funzioni implementa
 
 
 ## Device file
-Affinchè i servizi offerti dal driver e dalle system call funzionino correttamente è necessario che il device venga montato. In questo modo sarà possibile leggere e scrivere informazioni nei suoi blocchi .In particolare i blocchi mantenuti dal device file sono organizzati nel seguente modo:
+Affinchè i servizi offerti dal driver e dalle system call funzionino correttamente è necessario che il device venga montato. In questo modo sarà possibile leggere e scrivere informazioni nei suoi blocchi . In particolare i blocchi mantenuti dal device file sono organizzati nel seguente modo:
 
 1. Il primo blocco ospita il superblocco
 2. Il secondo blocco ospita l'inode
@@ -59,14 +59,14 @@ I campi da cui è composta sono :
 L'idea è quella di sfruttare i metadati di ogni blocco per creare una lista doppiamente collegata di tutti i nodi validi. In questo modo l'operazione di lettura di tutti i blocchi seguendo l'ordine di consegna diventa banale, e consiste solo nello scorrere la lista collegata. Tale lista deve essere doppiamente collegata a causa delle operazioni di invalidazioni. E' importante osservare come i blocchi vengono acceduti in lettura esclusivamente usando *buffer head* e non è presente una duplicazione del contenuto dei blocchi in ram.
 
 ## Block_read_write
-In questa sezione verrà chiarito come sono state implementate le operazioni primitive di lettura e scrittura nel sotto modulo [block_read_write](https://github.com/lucaFiscariello/ProgettoSoa/blob/0024a5ef8ca604a3026442dd7e17773451ac1bc9/message-service/core-RCU/block_read_write.c). Le operazioni di lettura e scrittura si basano sulle api linux rcu. Le operazioni di lettura e scrittura utilizzano quindi il meccanismo del read copy update. Pertanto i lettori possono effettuare operazioni di lettura in concorrenza senza problemi, mentre è possibile avere attivo un solo scrittore per volta il quale dovrà acquisire un lock. In particolare gli scrittori alla scrittura di un nuovo blocco creeranno un nuovo buffer contenente i dati e i metadati del blocco e in maniera atomica faranno puntare questi dati dal buffer head. L'immagine seguente mostra un esempio di come avviene un operazione di scrittura di un nuovo blocco. In giallo è mostrato il nuovo blocco, in rosso un blocco non valido e in verde i blocchi validi mantenuti in memoria.
+In questa sezione verrà chiarito come sono state implementate le operazioni primitive di lettura e scrittura nel sotto-modulo [block_read_write](https://github.com/lucaFiscariello/ProgettoSoa/blob/0024a5ef8ca604a3026442dd7e17773451ac1bc9/message-service/core-RCU/block_read_write.c). Le operazioni di lettura e scrittura si basano sulle api linux rcu e utilizzano quindi il meccanismo del read copy update. I lettori possono effettuare operazioni di lettura in concorrenza senza problemi, mentre è possibile avere attivo un solo scrittore per volta il quale dovrà acquisire un lock. In particolare gli scrittori per srivere un nuovo blocco devono creare un nuovo buffer contenente i dati e i metadati del blocco e in maniera atomica faranno puntare questi dati dal buffer head. L'immagine seguente mostra un esempio di come avviene un operazione di scrittura di un nuovo blocco. In giallo è mostrato il nuovo blocco, in rosso un blocco non valido e in verde i blocchi validi mantenuti in memoria. 
 
 ![soaDiagramma drawio (9)](https://github.com/lucaFiscariello/ProgettoSoa/assets/80633764/0bcd1686-68e3-4ff9-beaa-aae86d846bb2)
 
 #### Read
 L'operazione di [read primitiva](https://github.com/lucaFiscariello/ProgettoSoa/blob/0024a5ef8ca604a3026442dd7e17773451ac1bc9/message-service/core-RCU/block_read_write.c#LL23C1-L53C2) permette di leggere sia i dati che i metadati di un blocco nel device ad un offset dato. La read è implementata in modo che i lettori possano concorrere tra di loro senza problemi, eventuali scrittori vengono invece notificati. Di seguito è riportato il codice del lettore il quale sfrutta alcune API linux rcu:
 - **rcu_read_lock()** per avvisare eventuali scrittori che un lettore sta avviando una lettura. Tale API non blocca altri lettori.
-- **rcu_dereference()** è una semplice assegnazione. Assegna il contenuto di *bh->b_data* in *temp*. Tale assegnazione sfrutta però direttive e ottimizzazioni del 
+- **rcu_dereference()** è una semplice assegnazione. Assegna il contenuto di *bh->b_data* in *temp*.In questo pezzo di codice *bh* è il riferimento al buffer head. Tale assegnazione sfrutta però direttive e ottimizzazioni del 
 compilatore in modo da garantire un ordinamento degli accessi in memoria tra scrittori e lettori.
 - **rcu_read_unlock()** libera eventuali scrittori in attesa.
 Quando il lettore ha acquisito in modo atomico il riferimento al buffer contenenti i dati di interesse può copiarlo in un buffer locale.
@@ -83,7 +83,7 @@ Quando il lettore ha acquisito in modo atomico il riferimento al buffer contenen
 
 #### Write
 L'operazione di [scrittura primitiva](https://github.com/lucaFiscariello/ProgettoSoa/blob/0024a5ef8ca604a3026442dd7e17773451ac1bc9/message-service/core-RCU/block_read_write.c#LL135C1-L165C1) permette di scrivere un blocco di dati e metadati in blocco ad offset dato. Utilizza le api duali rispetto ai lettori. Di seguito è riportato un pezzo di codice che sfrutta :
-- **rcu_assign_pointer()** che è simile a rcu_dereference(). La documentazione del kernel linux consiglia tuttavia di utilizzare rcu_assign_pointer per i lettori e rcu_dereference per gli scrittori.
+- **rcu_assign_pointer()** che è simile a *rcu_dereference()*. La documentazione del kernel linux consiglia tuttavia di utilizzare rcu_assign_pointer per i lettori e rcu_dereference per gli scrittori.
 - **synchronize_rcu()** attende che scada il greece period.
 Una volta scaduto il greece period il thread scrittore ha la certezza che il buffer puntato da temp non venga utilizzato da nessun lettore. Pertanto può essere deallocato. Tutto il meccanismo è basato su creazione di nuovi buffer e swap atomico dei puntatori.
 
@@ -97,21 +97,20 @@ Una volta scaduto il greece period il thread scrittore ha la certezza che il buf
 ```
 
 #### Read_all_block
-Per la [lettura di tutti i blocchi](https://github.com/lucaFiscariello/ProgettoSoa/blob/0024a5ef8ca604a3026442dd7e17773451ac1bc9/message-service/core-RCU/block_read_write.c#LL64C1-L126C1) in ordine di consegna vengono sfruttati i metadati memorizzati all'interno di ogni blocco. Come specificato in precedenza i metadati di ogni blocco permettono di creare una lista doppiamente collegata. Il lettore pertanto non dovrà fare altro che leggere l'id del primo blocco valido dal metablocco e scorrere la lista di tutti i blocchi, concatenando ad ogni passo il contenuto di un blocco in un buffer. Nel buffer finale verranno mantenuti solo dati utili, tutti i metadati non verranno presi in considerazione. Il pezzo di codice che effettua lo scorrimento dei blocchi è confinato da una rcu_read_lock() e una rcu_read_unlock().
+Per la [lettura di tutti i blocchi](https://github.com/lucaFiscariello/ProgettoSoa/blob/0024a5ef8ca604a3026442dd7e17773451ac1bc9/message-service/core-RCU/block_read_write.c#LL64C1-L126C1) in ordine di consegna vengono sfruttati i metadati memorizzati all'interno di ogni blocco. Come specificato in precedenza i metadati di ogni blocco permettono di creare una lista doppiamente collegata. Il lettore pertanto non dovrà fare altro che leggere l'id del primo blocco valido dal metablocco e scorrere la lista di tutti i blocchi, concatenando ad ogni passo il contenuto di un blocco in un buffer. Nel buffer finale verranno mantenuti solo dati utili, tutti i metadati non verranno presi in considerazione. Il pezzo di codice che effettua lo scorrimento dei blocchi è confinato da una *rcu_read_lock()* e una *rcu_read_unlock()*.
 
 ## Rcu
-In questa sezione verrà invece chiarita l'implementazione del sotto modulo [rcu](https://github.com/lucaFiscariello/ProgettoSoa/blob/0024a5ef8ca604a3026442dd7e17773451ac1bc9/message-service/core-RCU/rcu.c#LL26C1-L76C2). Le funzioni che vengono implementate al suo interno vengono direttamente chiamate 
-delle system call e dal driver.
+In questa sezione verrà invece chiarita l'implementazione del sotto-modulo [rcu](https://github.com/lucaFiscariello/ProgettoSoa/blob/0024a5ef8ca604a3026442dd7e17773451ac1bc9/message-service/core-RCU/rcu.c#LL26C1-L76C2). Le funzioni che vengono implementate al suo interno vengono direttamente chiamate delle system call e dal driver.
 
 #### Write_rcu
 [La funzione di scrittura](https://github.com/lucaFiscariello/ProgettoSoa/blob/0024a5ef8ca604a3026442dd7e17773451ac1bc9/message-service/core-RCU/rcu.c#LL26C1-L76C2) permette di effettuare la scrittura di un buffer di dati in un blocco libero del device driver.
 Concettualmente l'operazione di scrittura può essere suddivisa nei seguenti passaggi:
-- acquisizione lock in scrittura,
-- creazione nuovo blocco : la creazione del nuovo blocco consiste nell'allocare una struttura di tipo block e compilarla con dati e metadati. In particolare i dati sono passati come parametro della funzione, nei metadati è memorizzato l'offset del blocco scritto temporalmente del blocco corrente. Quest'ultima informazione è memorizzata in un campo del metablocco.
-- aggiornamento blocco precedente: poichè è implementata una lista doppiamente collegata bisogna aggiornare il riferimento al next del blocco scritto temporalmente prima
-- scrittura del blocco sul device : tale scrittura sfrutta l'api primitiva offerta da block_read_write.
+- acquisizione lock in scrittura.
+- creazione nuovo blocco : la creazione del nuovo blocco consiste nell'allocare una struttura di tipo block e compilarla con dati e metadati. In particolare i dati sono passati come parametro della funzione, nei metadati è memorizzato l'offset del blocco scritto temporalmente prima del blocco corrente. Quest'ultima informazione è letta in un campo del metablocco.
+- aggiornamento blocco precedente: poichè è implementata una lista doppiamente collegata bisogna aggiornare il riferimento al next del blocco scritto temporalmente prima.
+- scrittura del blocco sul device : tale scrittura sfrutta l'api primitiva offerta dal sotto-modulo block_read_write.
 
-Per l'individuazione della posizione in cui scrivere il blocco vengono utilizzate due informazioni combinate. Può ossere utilizzato il campo *next_free_block* del metablocco che indica quale è la prossima posizione libera in cui poter scrivere un valore. Se questo campo restituisce un valore non accettabile allora si pescherà una posizione libera da una linked list che memorizza tutti i blocchi non validi. In particolare la linked list è utilizzata come uno stack, per cui si legge solo il valore in testa. Questo garantisce che le operazioni di scrittura abbiano una complessità costante. Di seguito è riportata un immagine che mostra come sono aggiornati i metadati del blocco in seguito ad un operazione di scrittura.
+Per l'individuazione della posizione in cui scrivere il blocco vengono utilizzate due informazioni combinate nella funzione [get_next_free_block()](https://github.com/lucaFiscariello/ProgettoSoa/blob/a5cbd146c6551cff4e07e60686befde02b01cf51/message-service/core-RCU/block_read_write.c#LL175C1-L204C2). La funzione leggerà prima il campo *next_free_block* del metablocco che indica quale è la prossima posizione libera in cui poter scrivere un valore. Se questo campo restituisce un valore non accettabile allora si pescherà una posizione libera dalla linked list che memorizza tutti i blocchi non validi. In particolare la linked list è utilizzata come uno stack, per cui si legge solo il valore in testa. Questo garantisce che le operazioni di scrittura abbiano una complessità costante. Di seguito è riportata un immagine che mostra come sono aggiornati i metadati del blocco in seguito ad un operazione di scrittura. In verde sono mostrati i blocchi validi e in rosso il blocco non valido.
 
 ![soaDiagramma drawio (11)](https://github.com/lucaFiscariello/ProgettoSoa/assets/80633764/fa6878e7-c760-4b06-a4c4-6e1c5148e31d)
 
@@ -123,15 +122,15 @@ nessuna struttura dati. Pertanto l'operazione di lettura è molto semplice e pu�
 - check per verificare la validità del blocco. Se il blocco non è valido è restituito ENODATA.
 
 #### Read_all_block_rcu
-La funzione [read_all_block_rcu](https://github.com/lucaFiscariello/ProgettoSoa/blob/0024a5ef8ca604a3026442dd7e17773451ac1bc9/message-service/core-RCU/rcu.c#LL161C1-L165C1) si limita ad invocare la read_all_block() del sotto-modulo block_read_write. Non c'è necessità di fare check o gestire metadati e altre informazioni a questo livello.
+La funzione [read_all_block_rcu](https://github.com/lucaFiscariello/ProgettoSoa/blob/0024a5ef8ca604a3026442dd7e17773451ac1bc9/message-service/core-RCU/rcu.c#LL161C1-L165C1) si limita ad invocare la *read_all_block()* del sotto-modulo block_read_write. Non c'è necessità di fare check o gestire metadati e altre informazioni a questo livello.
 
 #### Invalidate_rcu
-[L'operazione di invalidazine](https://github.com/lucaFiscariello/ProgettoSoa/blob/0024a5ef8ca604a3026442dd7e17773451ac1bc9/message-service/core-RCU/rcu.c#LL89C1-L146C1) permette di cacellare logicamente un blocco dal device. La cancellazione concettualmente è attuata in due passaggi: il primo consiste nel modificare il campo validity del blocco alzandolo a 1 e rendendolo di fatto un blocco non valido (si aggiorna anche la bitmap nel metablocco). Il secondo consiste nell'aggiornare i riferimeni dei blocchi all'interno della lista doppiamente collegata. L'aggiornamento dei riferimenti fa in modo che il nodo scritto temporalmente prima del nodo che è stato invalidato punti al successivo. L'immagine mostra un esempio di invalidazione e di come vengono aggiornati i metadati mantenuti dai blocchi.
+[L'operazione di invalidazine](https://github.com/lucaFiscariello/ProgettoSoa/blob/0024a5ef8ca604a3026442dd7e17773451ac1bc9/message-service/core-RCU/rcu.c#LL89C1-L146C1) permette di cacellare logicamente un blocco dal device. La cancellazione concettualmente è attuata in due passaggi: il primo consiste nel modificare il campo validity del blocco alzandolo a 1 e rendendolo di fatto un blocco non valido (si aggiorna anche la bitmap nel metablocco). Il secondo consiste nell'aggiornare i riferimeni dei blocchi all'interno della lista doppiamente collegata. L'aggiornamento dei riferimenti fa in modo che il nodo scritto temporalmente prima del nodo che è stato invalidato punti al successivo. L'immagine mostra un esempio di invalidazione e di come vengono aggiornati i metadati mantenuti dai blocchi. In verde sono mostrati i blocchi validi e in rosso quelli non validi.
  
 ![soaDiagramma drawio (10)](https://github.com/lucaFiscariello/ProgettoSoa/assets/80633764/a6439539-ce9b-40a9-9fd9-a151cdc868c6)
 
 ## System call
-Grazie all'architettura implementata il codice delle system call diventa molto snello. Le 3 system call richieste non faranno altro che copiare i dati da e verso gli utenti utilizzando la copyfromuser() e la copytouser() e chiamare una delle tre funzioni offerte dal sotto-module rcu. In particolare il mapping tra system call e funzioni rcu è il seguente:
+Grazie all'architettura implementata il codice delle system call diventa molto snello. Le 3 system call richieste non faranno altro che copiare i dati da e verso gli utenti utilizzando la *copyfromuser()* e la *copytouser()* e chiamare una delle tre funzioni offerte dal sotto-module rcu. In particolare il mapping tra system call e funzioni rcu è il seguente:
 
 | System call  | rcu  |
 | ------------- | ------------- |
@@ -144,7 +143,18 @@ Per l'implementazione del driver vale un discorso analogo. Sono state implementa
 [open](https://github.com/lucaFiscariello/ProgettoSoa/blob/364bf3624d89b7e405f7b609209dac45e9be72b2/message-service/singlefile-FS/file.c#LL126C1-L140C1) e 
 [release](https://github.com/lucaFiscariello/ProgettoSoa/blob/364bf3624d89b7e405f7b609209dac45e9be72b2/message-service/singlefile-FS/file.c#LL141C1-L149C2). Tali funzioni permettono di accedere al contenuto dell'unico file del file system montato sul device.
 In particolare l'implementazione della funzione read utilizza la funzione *read_all_block_rcu()* offerta dal sotto-modulo rcu. 
-L'implementazione della read è fatta in modo tale che la *read_all_block_rcu()* viene invocata una sola volta, in questo modo tutti blocchi validi vengono letti in base all'ordine di consegna. I dati utili di questi blocchi sono concatenati e memorizzati in un unico buffer a livello kernel. In questo modo i dati letti sono conservati localmente e nessun scrittore può causare interferenze. Successivamente i dati letti vengono consegnati all'utente un blocco alla volta.
+L'implementazione della read è fatta in modo tale che la *read_all_block_rcu()* viene invocata una sola volta, in questo modo tutti blocchi validi vengono letti in base all'ordine di consegna. I dati utili di questi blocchi sono concatenati e memorizzati in un unico buffer a livello kernel. I dati letti sono conservati localmente e nessun scrittore può causare interferenze. Successivamente i dati letti vengono consegnati all'utente un blocco alla volta.
+
+## In sintesi
+La soluzione proposta ha le seguenti caratteristiche:
+- I dati dei blocchi del device sono acceduti esclusivamente tramite buffer head, non si mantengono altre strutture dati in memoria.
+- L'unica struttura dati aggiuntiva è una linked list dei nodi non validi. La struttura è acceduta da uno scrittore alla volta e da nessun lettore, per cui non si verificano mai problemi di concorrenza.
+- Le operazioni di lettura, scrittura e invalidazione hanno tutte complessità costante.
+- La concorrenza tra lettori e scrittore e gestita tramime rcu implementato attreverso le api offerte da linux.
+
+
+Alcune limitazioni:
+- la soluzione proposta può gestire fino ad un massimo di 32000 blocchi a causa della dimensione della bitmap. Tuttavia è possibile facilmente estendere il codice e utilizzare altri blocchi del device per estendere la bitmap. Un blocco di metadati per gestire  32000 blocchi sembra un compromesso accettabile.
 
 ## Esecuzione codice
 > **Warning**
