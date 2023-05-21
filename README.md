@@ -13,7 +13,7 @@ Per il raggiungimento di tali obiettivi è stata pensata un architettura del mod
 L'interazioni tra i vari componenti del modulo è descritto dall'immagine seguente. Sia le system call , sia le funzioni implementate dal driver si appoggiano
 alla libreria di supporto *RCU-core* che offre una serie di API utili a leggere, scrivere e invalidare blocchi nel file device.
 
-![soaDiagramma drawio (8)](https://github.com/lucaFiscariello/ProgettoSoa/assets/80633764/031eaf06-1406-461c-9dde-c7a0ce1b9f47)
+![soaDiagramma drawio (8)](https://github.com/lucaFiscariello/ProgettoSoa/assets/80633764/9e7246f7-6e6b-4338-b824-71a2fa69d46c)
 
 In particolare *RCU-core* può essere visto come l'insieme di altre 3 componenti che hanno responsabilità differenti. Tali componenti sono :
 
@@ -26,7 +26,7 @@ di concorrenza. L'idea è che tale componente durante le operazioni di scrittura
 
 Complessivamente l'architettura che si viene a creare con le funzioni implementate da ogni componente è la seguente:
 
-![soaDiagramma drawio (7)](https://github.com/lucaFiscariello/ProgettoSoa/assets/80633764/b733804c-4015-4649-9964-6cd401f1cf03)
+![soaDiagramma drawio (7)](https://github.com/lucaFiscariello/ProgettoSoa/assets/80633764/5af0e0f6-55a0-4410-8111-4a6656962775)
 
 
 ## Device file
@@ -61,7 +61,8 @@ L'idea è quella di sfruttare i metadati di ogni blocco per creare una lista dop
 ## Block_read_write
 In questa sezione verrà chiarito come sono state implementate le operazioni primitive di lettura e scrittura nel sotto-modulo [block_read_write](https://github.com/lucaFiscariello/ProgettoSoa/blob/0024a5ef8ca604a3026442dd7e17773451ac1bc9/message-service/core-RCU/block_read_write.c). Le operazioni di lettura e scrittura si basano sulle api linux rcu e utilizzano quindi il meccanismo del read copy update. I lettori possono effettuare operazioni di lettura in concorrenza senza problemi, mentre è possibile avere attivo un solo scrittore per volta il quale dovrà acquisire un lock. In particolare gli scrittori per srivere un nuovo blocco devono creare un nuovo buffer contenente i dati e i metadati del blocco e in maniera atomica faranno puntare questi dati dal buffer head. L'immagine seguente mostra un esempio di come avviene un operazione di scrittura di un nuovo blocco. In giallo è mostrato il nuovo blocco, in rosso un blocco non valido e in verde i blocchi validi mantenuti in memoria. 
 
-![soaDiagramma drawio (9)](https://github.com/lucaFiscariello/ProgettoSoa/assets/80633764/0bcd1686-68e3-4ff9-beaa-aae86d846bb2)
+![soaDiagramma drawio (9)](https://github.com/lucaFiscariello/ProgettoSoa/assets/80633764/173708a9-9eab-4800-a737-387946f32b69)
+
 
 #### Read
 L'operazione di [read primitiva](https://github.com/lucaFiscariello/ProgettoSoa/blob/0024a5ef8ca604a3026442dd7e17773451ac1bc9/message-service/core-RCU/block_read_write.c#LL23C1-L53C2) permette di leggere sia i dati che i metadati di un blocco nel device ad un offset dato. La read è implementata in modo che i lettori possano concorrere tra di loro senza problemi, eventuali scrittori vengono invece notificati. Di seguito è riportato il codice del lettore il quale sfrutta alcune API linux rcu:
@@ -112,7 +113,8 @@ Concettualmente l'operazione di scrittura può essere suddivisa nei seguenti pas
 
 Per l'individuazione della posizione in cui scrivere il blocco vengono utilizzate due informazioni combinate nella funzione [get_next_free_block()](https://github.com/lucaFiscariello/ProgettoSoa/blob/a5cbd146c6551cff4e07e60686befde02b01cf51/message-service/core-RCU/block_read_write.c#LL175C1-L204C2). La funzione leggerà prima il campo *next_free_block* del metablocco che indica quale è la prossima posizione libera in cui poter scrivere un valore. Se questo campo restituisce un valore non accettabile allora si pescherà una posizione libera dalla linked list che memorizza tutti i blocchi non validi. In particolare la linked list è utilizzata come uno stack, per cui si legge solo il valore in testa. Questo garantisce che le operazioni di scrittura abbiano una complessità costante. Di seguito è riportata un immagine che mostra come sono aggiornati i metadati del blocco in seguito ad un operazione di scrittura. In verde sono mostrati i blocchi validi e in rosso il blocco non valido.
 
-![soaDiagramma drawio (11)](https://github.com/lucaFiscariello/ProgettoSoa/assets/80633764/fa6878e7-c760-4b06-a4c4-6e1c5148e31d)
+![soaDiagramma drawio (11)](https://github.com/lucaFiscariello/ProgettoSoa/assets/80633764/c71909c1-b7ca-43a8-8050-a42a130ab4f8)
+
 
 #### Read_rcu
 [La funzione di lettura](https://github.com/lucaFiscariello/ProgettoSoa/blob/0024a5ef8ca604a3026442dd7e17773451ac1bc9/message-service/core-RCU/rcu.c#LL148C1-L159C2) permette di effettuare una lettura di un blocco ad un dato offset. Durante le operazioni di lettura non c'è necessità di aggiornare
@@ -127,7 +129,7 @@ La funzione [read_all_block_rcu](https://github.com/lucaFiscariello/ProgettoSoa/
 #### Invalidate_rcu
 [L'operazione di invalidazine](https://github.com/lucaFiscariello/ProgettoSoa/blob/0024a5ef8ca604a3026442dd7e17773451ac1bc9/message-service/core-RCU/rcu.c#LL89C1-L146C1) permette di cacellare logicamente un blocco dal device. La cancellazione concettualmente è attuata in due passaggi: il primo consiste nel modificare il campo validity del blocco alzandolo a 1 e rendendolo di fatto un blocco non valido (si aggiorna anche la bitmap nel metablocco). Il secondo consiste nell'aggiornare i riferimeni dei blocchi all'interno della lista doppiamente collegata. L'aggiornamento dei riferimenti fa in modo che il nodo scritto temporalmente prima del nodo che è stato invalidato punti al successivo. L'immagine mostra un esempio di invalidazione e di come vengono aggiornati i metadati mantenuti dai blocchi. In verde sono mostrati i blocchi validi e in rosso quelli non validi.
  
-![soaDiagramma drawio (10)](https://github.com/lucaFiscariello/ProgettoSoa/assets/80633764/a6439539-ce9b-40a9-9fd9-a151cdc868c6)
+![soaDiagramma drawio (10)](https://github.com/lucaFiscariello/ProgettoSoa/assets/80633764/bc2bf451-3a4b-4252-965f-4862555defd8)
 
 ## System call
 Grazie all'architettura implementata il codice delle system call diventa molto snello. Le 3 system call richieste non faranno altro che copiare i dati da e verso gli utenti utilizzando la *copyfromuser()* e la *copytouser()* e chiamare una delle tre funzioni offerte dal sotto-module rcu. In particolare il mapping tra system call e funzioni rcu è il seguente:
