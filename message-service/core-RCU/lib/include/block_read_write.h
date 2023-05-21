@@ -38,7 +38,6 @@
 
 int get_next_free_block(void);
 int read(int block_to_read,struct block* block); 
-int read_all_block(char* data); 
 int write(int block_to_write,struct block* block);
 
 

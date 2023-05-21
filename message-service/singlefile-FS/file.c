@@ -14,55 +14,91 @@
 
 
 /**
- * La funzione di lettura è implementata nel seguente modo:
- *  - si sfrutta l'api read_all_block_rcu() che legge tutti i blocchi validi seguendo l'ordine di delivery
- *  - tutti i blocchi letti vengono concatenati e memorizzati in un buffer temporaneo
- *  - il puntatore del buffer temporaneo è mantenuto in filp->private_data
- * Questa implementazione offre garanzie se durante la lettura avviene una scrittura concorrente. Terminata l'esecuzione di read_all_block_rcu() si avrà a disposizione
- * in un buffer locale dei dati che non possono più essere toccati da nessuno scrittore. Questo permette di rilasciare le informazioni che 
- * sono presenti nel buffer temporaneo un blocco alla volta di dimensione "len" senza che nessun altro thread interferisca.
- * I dati che sono mantenuti nel buffer temporaneo sono stati privati dei metadati.
+ * La funzione di lettura scorre tutti i blocchi validi in ordine di consegna.
+ * I blocchi sono organizzati logicamente in una linked list doppiamente collegata, pertanto uno scrittore dovrà 
+ * scorrere la lista e copiare il contenuto dei blochi nel buffer utente. La funzione è implementata nel seguente modo:
+ *  - vengono notificati eventuali scrittori che un lettore ha avviato un operazione di lettura
+ *  - si individua il blocco da cui iniziare le operazioni di lettura.
+ *  - si scorrono tutti i blocchi e si memorizzano i dati nel buffer utente un blocco alla volta. Vengono copiati solo i dati utili.
 */
 ssize_t onefilefs_read(struct file * filp, char __user * buf, size_t len, loff_t * off) {
      
-    char* kernel_buffer;
     int ret;
-    
+    int temp_block_to_read;
+    int* actual_block;
+    void* temp;
+    struct block *temp_block;
+    struct meta_block_rcu *meta_block_rcu;
+    struct block_device *block_device;
+    struct buffer_head *bh = NULL;
+
+    block_device = get_block_device_AfterMount();
+    meta_block_rcu= read_ram_metablk();
+    actual_block = (int*)filp->private_data;
+
     check_mount();
+
+    //Segnalo presenza di un lettore ad eventuali scrittori
+    rcu_read_lock();
     
-    
-    // il campo filp->private_data sarà NULL alla prima invocazione della funzione
+    //Alla prima invocazione filp->private_data sarà null
     if(filp->private_data == NULL){
 
-        //Alla prima invocazione della funzione leggo tutti i blocchi e li memorizzo in un buffer temporaneo
-        kernel_buffer = kmalloc(get_dim_buffer(),GFP_KERNEL);
-        read_all_block_rcu(kernel_buffer);
-        
-        //Verifico se sono presenti dati da leggere
-        if(strlen(kernel_buffer) == 0){
-            kfree(kernel_buffer);
-            return 0;
-        }else{
-        	filp->private_data = kernel_buffer;
-        }
-        
+        filp->private_data = kmalloc(sizeof(int),GFP_KERNEL);
 
-    }else{
-
-        //Verifico se ho letto tutti i dati dal buffer temporaneo
-        if(*off >= strlen(filp->private_data)){
-
-            kfree(filp->private_data);
-            return 0;
-
-        }
+        //devo far partire la scorrimento dei blocchi dal primo blocco valido
+        actual_block = (int*)filp->private_data;
+        *actual_block = meta_block_rcu->firstBlock;
     }
 
-    //Copio i dati nel buffer utente un blocco alla volta di dimensione "len"
-    ret = copy_to_user(buf,filp->private_data + *off , len);
-    *off += len-ret; 
+    //Alle successive invocazioni verifico se ho letto tutti i dati a disposizione
+    if(*actual_block < 0){
+        rcu_read_unlock();
+        return 0;
+    }
+    
+    /* 
+     * actual_block indica il blocco da cui partire la lettura. Può ossere il primo blocco valido del device
+     * oppure un qualsiasi altro blocco se la funzione è invocata più di una volta.
+     */
+    temp_block_to_read = *actual_block;
 
-    return len-ret;
+    //Scorro la lista di tutti i blocchi validi fin quando o non li leggo tutti o ho terminato lo spazio nel buffer utente
+    while (temp_block_to_read != BLOCK_ERROR && *off<len){
+
+        bh = (struct buffer_head *)sb_bread(block_device->bd_super, temp_block_to_read);
+        check_bh_and_unlock(bh);
+
+        //acquisisco riferimento del blocco temporaneo
+        temp = (void*) rcu_dereference(bh->b_data);
+        temp_block = (struct block*) (void**)temp;
+
+        if (temp != NULL){ 
+
+            //Copio i dati nel buffer utente un blocco alla volta
+            ret = copy_to_user(buf+*off,temp_block->data, DIM_DATA_BLOCK);
+            strcat(buf+*off+1,"\n");
+            *off+=DIM_DATA_BLOCK-ret+1;
+
+            //Mi sposto al blocco successivo
+            temp_block_to_read = temp_block->next_block;
+            
+        }else{
+
+            rcu_read_unlock();
+            brelse(bh);
+            return -1;
+
+        }
+
+        brelse(bh);
+        
+    }
+
+    *actual_block=temp_block_to_read;
+
+    return *off;
+        
 
 }
 
