@@ -105,8 +105,10 @@ struct dentry *singlefilefs_mount(struct file_system_type *fs_type, int flags, c
         printk("%s: error mounting onefilefs",MOD_NAME);
     else{
         printk("%s: singlefilefs is succesfully mounted on from device %s\n",MOD_NAME,dev_name);
+        
         set_block_device_onMount(dev_name);
-        inizialize_meta_block();
+        if(inizialize_meta_block()<0)
+            return NULL;
     }
 
 

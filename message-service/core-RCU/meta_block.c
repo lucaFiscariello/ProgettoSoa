@@ -39,7 +39,9 @@ int inizialize_meta_block(){
     if(meta_block_rcu->already_inizialize)
         return 0;
 
-    
+    if(blocks_number>MAX_BLOCK)
+        return -1;
+        
     head = kmalloc(sizeof(struct invalid_block),GFP_KERNEL);
     head->block = BLOCK_ERROR;
     head->next = NULL;
