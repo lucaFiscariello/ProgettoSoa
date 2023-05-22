@@ -44,6 +44,7 @@ int write_rcu(char *block_data,int size)
     block_to_write = get_next_free_block();
     block_to_update = meta_block_rcu->lastWriteBlock;
     
+    //return ENODATA se una lettura fallisce
     check_return_read_and_unlock(read(block_to_write, block),	    meta_block_rcu->write_lock);
     check_return_read_and_unlock(read(block_to_update, pred_block), meta_block_rcu->write_lock);
 
@@ -68,7 +69,6 @@ int write_rcu(char *block_data,int size)
     increment_nex_free_block(meta_block_rcu);
     
     increment_dim_file(strlen(block_data)+1);
-
 
     unlock(meta_block_rcu->write_lock);
 

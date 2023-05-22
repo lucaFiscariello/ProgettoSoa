@@ -52,7 +52,7 @@ ssize_t onefilefs_read(struct file * filp, char __user * buf, size_t len, loff_t
     }
 
     //Alle successive invocazioni verifico se ho letto tutti i dati a disposizione
-    if(*actual_block < 0){
+    if(*actual_block < 0 || *off>=len){
         rcu_read_unlock();
         return 0;
     }
@@ -66,6 +66,9 @@ ssize_t onefilefs_read(struct file * filp, char __user * buf, size_t len, loff_t
     //Scorro la lista di tutti i blocchi validi fin quando o non li leggo tutti o ho terminato lo spazio nel buffer utente
     while (temp_block_to_read != BLOCK_ERROR && *off<len){
 
+        if(temp_block_to_read<=POS_META_BLOCK)
+            return 0;
+
         bh = (struct buffer_head *)sb_bread(block_device->bd_super, temp_block_to_read);
         check_bh_and_unlock(bh);
 
@@ -78,11 +81,12 @@ ssize_t onefilefs_read(struct file * filp, char __user * buf, size_t len, loff_t
             //Copio i dati nel buffer utente un blocco alla volta
             ret = copy_to_user(buf+*off,temp_block->data, DIM_DATA_BLOCK);
             strcat(buf+*off+1,"\n");
-            *off+=DIM_DATA_BLOCK-ret+1;
+            *off+=strlen(temp_block->data)-ret+1;
 
             //Mi sposto al blocco successivo
             temp_block_to_read = temp_block->next_block;
-            
+            brelse(bh);
+
         }else{
 
             rcu_read_unlock();
@@ -90,9 +94,7 @@ ssize_t onefilefs_read(struct file * filp, char __user * buf, size_t len, loff_t
             return -1;
 
         }
-
-        brelse(bh);
-        
+    
     }
 
     *actual_block=temp_block_to_read;

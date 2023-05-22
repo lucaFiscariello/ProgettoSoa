@@ -5,7 +5,7 @@
  * In particolare le funzioni implementate sono quelle di: 
  *  - inizializzazione del metablocco
  *  - flush del meta blocco dalla ram al device
- *  - lettura del meta blocco dal device alla ram
+ *  - creazione copia del meta in ram
 */
 
 #include <linux/kernel.h>
@@ -84,7 +84,7 @@ int flush_device_metablk(){
 }
 
 /**
- * Dualmente al flush del meta blocco nel device , questa funzione permette di leggere il metablocco dal device e salvare 
+ * Dualmente al flush del meta blocco nel device , questa funzione permette recuperare il riferimento del metablocco tramite buffer head e salvare 
  * una copia in ram. I campi del meta blocco sono accessibili sia in scrittura che in lettura. Eventuali modifiche devono essere opportunamente
  * riportate sul device attraverso la funzione "flush_device_metablk".
 */
@@ -104,7 +104,7 @@ struct meta_block_rcu* read_device_metablk(){
         //Scorro tutta la bitmap mantenuta dal metablocco
         for(int blok_id=0 ; blok_id<meta_block_rcu->blocksNumber; blok_id++){
 
-            //Se trovo un blocco invalidato creo un nuovo nodo nella linked list dei nodi attualmente invalidati
+            //Se trovo un blocco invalidato creo un nuovo nodo nella linked list dei blocchi attualmente invalidati
             if(is_invalid(blok_id,meta_block_rcu)){
 
                 new_invalid_block = kmalloc(sizeof(struct invalid_block),GFP_KERNEL);
@@ -122,10 +122,7 @@ struct meta_block_rcu* read_device_metablk(){
     return meta_block_rcu;
 }
 
-/**
- * Tale funzione permette di implementare una cache in ram. Quando un thread ha bisogno di leggere il meta blocco 
- * se è già presente in ram non c'è necessita di leggerlo nuovamente dal device.
-*/
+
 struct meta_block_rcu* read_ram_metablk(){
     if(meta_block_rcu==NULL)
         return read_device_metablk();
