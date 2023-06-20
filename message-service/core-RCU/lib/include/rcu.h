@@ -34,8 +34,11 @@
     else if((size> DIM_DATA_BLOCK))\
         size=DIM_DATA_BLOCK;
 
+
 int read_block_rcu(int block_to_read,struct block* block);
 int write_rcu(char* block_data,int size);
 int invalidate_rcu(int block_to_invalidate);
+
+
 
 #endif

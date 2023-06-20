@@ -27,6 +27,7 @@ int read( int block_to_read,struct block* block){
     struct meta_block_rcu *meta_block_rcu;
     struct block_device *block_device;
     struct buffer_head *bh = NULL;
+    int epoch;
 
   
     meta_block_rcu= read_ram_metablk();
@@ -38,10 +39,10 @@ int read( int block_to_read,struct block* block){
 
     if (bh->b_data != NULL){ 
 
-        rcu_read_lock();
-        temp = (void*) rcu_dereference(bh->b_data);
+        epoch = rcu_read_lock();
+        temp = (void*) bh->b_data;
         memcpy( block,temp, DIM_BLOCK);
-        rcu_read_unlock(); 
+        rcu_read_unlock(epoch); 
 
     }
 
@@ -75,8 +76,9 @@ int write(int block_to_write,struct block* block){
     if (bh->b_data != NULL){
 
         // Memorizzio il riferimento ai dati in una variabile temporanea. In questo modo alla fine del greece period è possibile deallocarla
+        update_epoch();
         temp = bh->b_data;
-        rcu_assign_pointer(bh->b_data,(void *) block);
+        bh->b_data=(void *) block;
         synchronize_rcu();
         kfree(temp);
 

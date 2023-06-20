@@ -18,9 +18,10 @@
 
 static struct block_device *block_device = NULL;
 static struct meta_block_rcu *meta_block_rcu = NULL;
-static int blocks_number = 0x0;
 
+int blocks_number = 0;
 module_param(blocks_number, int, 0660);
+DECLARE_WAIT_QUEUE_HEAD(wqueue);
 
 
 /**
@@ -92,6 +93,7 @@ struct meta_block_rcu* read_device_metablk(){
 
     struct buffer_head *bh = NULL;
     struct invalid_block * new_invalid_block;
+    int all_block;
 
     bh = (struct buffer_head *)sb_bread(block_device->bd_super, POS_META_BLOCK);
     if(!bh) return NULL;
@@ -100,9 +102,9 @@ struct meta_block_rcu* read_device_metablk(){
     if (bh->b_data != NULL){ 
 
         memcpy(meta_block_rcu, bh->b_data, sizeof(struct meta_block_rcu));        
-
+        all_block = meta_block_rcu->blocksNumber;
         //Scorro tutta la bitmap mantenuta dal metablocco
-        for(int blok_id=0 ; blok_id<meta_block_rcu->blocksNumber; blok_id++){
+        for(int blok_id=0 ; blok_id<all_block; blok_id++){
 
             //Se trovo un blocco invalidato creo un nuovo nodo nella linked list dei blocchi attualmente invalidati
             if(is_invalid(blok_id,meta_block_rcu)){
@@ -193,5 +195,28 @@ void set_block_device_onUmount(){
 struct block_device * get_block_device_AfterMount(void){
     return block_device;
 }
+
+int rcu_read_lock(){
+    int epoch = meta_block_rcu->epoch;
+     __sync_fetch_and_add(meta_block_rcu->standing[epoch],1);
+
+    return epoch;
+}
+
+void  rcu_read_unlock(int last_epoch){
+    __sync_fetch_and_add(meta_block_rcu->standing[last_epoch],-1);
+    wake_up_interruptible(&wqueue);
+}
+
+void update_epoch(){
+    __sync_fetch_and_xor(&meta_block_rcu->epoch,MASK);
+}
+
+void  synchronize_rcu(){
+    int epoch = meta_block_rcu->epoch;
+    int last_epoch = epoch ^ MASK;
+    wait_event_interruptible(wqueue,meta_block_rcu->standing[last_epoch]== 0);
+}
+
 
 

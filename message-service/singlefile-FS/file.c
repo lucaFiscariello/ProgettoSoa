@@ -32,15 +32,16 @@ ssize_t onefilefs_read(struct file * filp, char __user * buf, size_t len, loff_t
     struct meta_block_rcu *meta_block_rcu;
     struct block_device *block_device;
     struct buffer_head *bh = NULL;
+    int epoch;
+
+    check_mount();
 
     block_device = get_block_device_AfterMount();
     meta_block_rcu= read_ram_metablk();
     actual_block = (int*)filp->private_data;
 
-    check_mount();
-
     //Segnalo presenza di un lettore ad eventuali scrittori
-    rcu_read_lock();
+    epoch = rcu_read_lock();
     
     //Alla prima invocazione filp->private_data sarà null
     if(filp->private_data == NULL){
@@ -54,7 +55,7 @@ ssize_t onefilefs_read(struct file * filp, char __user * buf, size_t len, loff_t
 
     //Alle successive invocazioni verifico se ho letto tutti i dati a disposizione
     if(*actual_block < 0 || *off>=len){
-        rcu_read_unlock();
+        rcu_read_unlock(epoch);
         return 0;
     }
     
@@ -90,7 +91,7 @@ ssize_t onefilefs_read(struct file * filp, char __user * buf, size_t len, loff_t
 
         }else{
 
-            rcu_read_unlock();
+            rcu_read_unlock(epoch);
             brelse(bh);
             return -1;
 

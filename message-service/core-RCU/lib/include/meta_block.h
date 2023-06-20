@@ -4,7 +4,7 @@
 #include <linux/blkdev.h>
 #include "../../../singlefile-FS/lib/include/singlefilefs.h"
 
-#define MAX_INVALID_BLOCK (DIM_BLOCK-68)/4
+#define MAX_INVALID_BLOCK (DIM_BLOCK-68-12)/4
 #define BIT_INT 32
 #define POS_META_BLOCK 2
 #define POS_I_NODE 1
@@ -18,6 +18,8 @@
 #define ZERO_WRITER 0
 #define LOCK_WRITER 1
 #define MAX_BLOCK 32000
+#define EPOCHS 2
+#define MASK 0x0000000000000001
 
 #define check_mount()\
     if(get_block_device_AfterMount()==NULL)\
@@ -69,6 +71,10 @@ struct meta_block_rcu {
 
    /*Campo che permette di capire se il metablocco è stato formattato correttamente sul device*/
    int already_inizialize;
+
+   int epoch;
+
+   int standing[EPOCHS];
 } ; 
 
 
@@ -108,5 +114,10 @@ struct block_device * get_block_device_AfterMount(void);
 struct meta_block_rcu* read_ram_metablk(void); 
 struct meta_block_rcu* read_device_metablk(void); 
 int flush_device_metablk(void); 
+
+int   rcu_read_lock();
+void  rcu_read_unlock(int last_epoch);
+void synchronize_rcu();
+void update_epoch();
 
 #endif
