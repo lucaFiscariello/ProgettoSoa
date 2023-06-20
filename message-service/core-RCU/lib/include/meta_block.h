@@ -4,7 +4,7 @@
 #include <linux/blkdev.h>
 #include "../../../singlefile-FS/lib/include/singlefilefs.h"
 
-#define MAX_INVALID_BLOCK (DIM_BLOCK-68-12)/4
+#define MAX_INVALID_BLOCK (DIM_BLOCK-88)/4
 #define BIT_INT 32
 #define POS_META_BLOCK 2
 #define POS_I_NODE 1
@@ -21,9 +21,11 @@
 #define EPOCHS 2
 #define MASK 0x0000000000000001
 
-#define check_mount()\
-    if(get_block_device_AfterMount()==NULL)\
+#define check_mount(metablock)\
+    if(!__sync_fetch_and_add(&metablock->mount_state,0))\
         return ENODEV;
+
+#define change_state_mount(meta_block) ( __sync_fetch_and_xor(&meta_block->mount_state,MASK) )
 
 #define set_bit(pos,meta_block)      ( meta_block->bitMap[pos/BIT_INT] |=  (1 << (pos%BIT_INT)) )
 #define is_invalid(pos,meta_block)   ( meta_block->bitMap[pos/BIT_INT] &   (1 << (pos%BIT_INT)) )
@@ -33,9 +35,9 @@
    if(!bh)\
       return BHERROR;
 
-#define check_bh_and_unlock(bh)\
+#define check_bh_and_unlock(bh,epoch)\
    if(!bh){\
-      rcu_read_unlock();\
+      rcu_unlock_read(epoch);\
       return BHERROR;\
    }
 
@@ -75,6 +77,11 @@ struct meta_block_rcu {
    int epoch;
 
    int standing[EPOCHS];
+
+   int counter_active_thread;
+
+   int mount_state;
+
 } ; 
 
 
@@ -115,9 +122,12 @@ struct meta_block_rcu* read_ram_metablk(void);
 struct meta_block_rcu* read_device_metablk(void); 
 int flush_device_metablk(void); 
 
-int   rcu_read_lock();
-void  rcu_read_unlock(int last_epoch);
-void synchronize_rcu();
-void update_epoch();
+int   rcu_lock_read(void);
+void  rcu_unlock_read(int last_epoch);
+void rcu_synchronize(void);
+void update_epoch(void);
+void  increment_active_threads(void);
+void  decrement_active_threads(void);
+void wait_umount(void);
 
 #endif

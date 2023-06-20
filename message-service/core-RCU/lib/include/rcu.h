@@ -13,6 +13,11 @@
     if(__sync_val_compare_and_swap(&lock_element,ZERO_WRITER,LOCK_WRITER) == LOCK_WRITER)\
         return LOCKERROR;
 
+#define try_lock_mount(lock_element) \
+    if(__sync_val_compare_and_swap(&lock_element,ZERO_WRITER,LOCK_WRITER) == LOCK_WRITER)\
+        return NULL;
+
+
 #define increment_nex_free_block(metablock)\
 	if(metablock->nextFreeBlock +1< metablock->blocksNumber)\
 	   metablock->nextFreeBlock++;

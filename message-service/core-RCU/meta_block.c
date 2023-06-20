@@ -103,6 +103,7 @@ struct meta_block_rcu* read_device_metablk(){
 
         memcpy(meta_block_rcu, bh->b_data, sizeof(struct meta_block_rcu));        
         all_block = meta_block_rcu->blocksNumber;
+
         //Scorro tutta la bitmap mantenuta dal metablocco
         for(int blok_id=0 ; blok_id<all_block; blok_id++){
 
@@ -186,35 +187,69 @@ int decrement_dim_file(int bytes){
 
 void set_block_device_onMount(const char* devname){
     block_device= blkdev_get_by_path(devname, FMODE_READ|FMODE_WRITE, NULL);
+    asm volatile("mfence");
 }
 
 void set_block_device_onUmount(){
-    block_device= NULL;
+    block_device = NULL;
+    asm volatile("mfence");
 }
 
 struct block_device * get_block_device_AfterMount(void){
     return block_device;
 }
 
-int rcu_read_lock(){
+void  increment_active_threads(void){
+    __sync_fetch_and_add(&meta_block_rcu->counter_active_thread,1);
+}
+
+void  decrement_active_threads(void){
+    __sync_fetch_and_add(&meta_block_rcu->counter_active_thread,-1);
+    wake_up_interruptible(&wqueue);
+}
+
+void wait_umount(void){
+    wait_event_interruptible(wqueue,meta_block_rcu->counter_active_thread == 0);
+}
+
+
+/**
+ * Attraverso questa funzione un lettore può comunicare a uno scrittore l'intenzione di avviare una scrittura.
+ * Per farlo è necessario incrementare atomicamente un contatore che dipende dall'epoca in cui si trova il lettore.
+*/
+int rcu_lock_read(){
     int epoch = meta_block_rcu->epoch;
-     __sync_fetch_and_add(meta_block_rcu->standing[epoch],1);
+     __sync_fetch_and_add(&meta_block_rcu->standing[epoch],1);
 
     return epoch;
 }
 
-void  rcu_read_unlock(int last_epoch){
-    __sync_fetch_and_add(meta_block_rcu->standing[last_epoch],-1);
+/**
+ * Attraverso questa funzione un lettore può comunicare la conclusione di un operazione di lettura.
+ * Per farlo è necessario decrementare lo stesso contatore incrementato all'inizio della lettura.
+*/
+void  rcu_unlock_read(int last_epoch){
+    __sync_fetch_and_add(&meta_block_rcu->standing[last_epoch],-1);
     wake_up_interruptible(&wqueue);
 }
 
+/**
+ * Attraverso questa funzione è possibile aggiornare l'epoca. Sono previste solo due epoche: 0 e 1.
+ * Il passaggio da un epoca ad un altra avviene atomicamente utilizzando l'operatore XOR con una maschera appropriata.
+ * Se ad esempio l'epoca corrente è 0, tramite lo xor verrà aggiornata in 1. Viceversa se l'epoca è 1 sempre grazie 
+ * all'operazione di xor atomicamente è aggiornata in 0.
+*/
 void update_epoch(){
     __sync_fetch_and_xor(&meta_block_rcu->epoch,MASK);
 }
 
-void  synchronize_rcu(){
+/**
+ * Implementa l'attesa del greece period di uno scrittore. Il TCB dello scrittore è posto in una waitqueue.
+*/
+void  rcu_synchronize(){
     int epoch = meta_block_rcu->epoch;
     int last_epoch = epoch ^ MASK;
+
     wait_event_interruptible(wqueue,meta_block_rcu->standing[last_epoch]== 0);
 }
 

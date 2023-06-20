@@ -39,10 +39,11 @@ int read( int block_to_read,struct block* block){
 
     if (bh->b_data != NULL){ 
 
-        epoch = rcu_read_lock();
+        epoch = rcu_lock_read();
         temp = (void*) bh->b_data;
+        asm volatile("mfence");
         memcpy( block,temp, DIM_BLOCK);
-        rcu_read_unlock(epoch); 
+        rcu_unlock_read(epoch); 
 
     }
 
@@ -79,7 +80,8 @@ int write(int block_to_write,struct block* block){
         update_epoch();
         temp = bh->b_data;
         bh->b_data=(void *) block;
-        synchronize_rcu();
+        asm volatile("mfence");
+        rcu_synchronize();
         kfree(temp);
 
     }

@@ -7,12 +7,12 @@
 #include <linux/types.h>
 #include <linux/slab.h>
 #include <linux/string.h>
-
 #include "lib/include/singlefilefs.h"
-#include "../core-RCU/lib/include/meta_block.h"
+#include "../core-RCU/lib/include/rcu.h"
 
 
-char* DEV_MOUNT = "NULL";
+static int lock_mount=0;                                                          
+
 
 static struct super_operations singlefilefs_super_ops = {
 };
@@ -86,10 +86,18 @@ int singlefilefs_fill_super(struct super_block *sb, void *data, int silent) {
 
 static void singlefilefs_kill_superblock(struct super_block *s) {
     
+    struct meta_block_rcu *meta_block_rcu;
+    meta_block_rcu = read_ram_metablk();
+
+    wait_umount();
+    
+    change_state_mount(meta_block_rcu);
     flush_device_metablk();
-    kill_block_super(s);
+
     set_block_device_onUmount();
-        
+    kill_block_super(s);
+    unlock(lock_mount);
+
     printk(KERN_INFO "%s: singlefilefs unmount succesful.\n",MOD_NAME);
     return;
 }
@@ -98,17 +106,25 @@ static void singlefilefs_kill_superblock(struct super_block *s) {
 struct dentry *singlefilefs_mount(struct file_system_type *fs_type, int flags, const char *dev_name, void *data) {
 
     struct dentry *ret;
+    struct meta_block_rcu *meta_block_rcu;
+    
+    try_lock_mount(lock_mount);
 
     ret = mount_bdev(fs_type, flags, dev_name, data, singlefilefs_fill_super);
 
     if (unlikely(IS_ERR(ret)))
         printk("%s: error mounting onefilefs",MOD_NAME);
     else{
-        printk("%s: singlefilefs is succesfully mounted on from device %s\n",MOD_NAME,dev_name);
         
         set_block_device_onMount(dev_name);
         if(inizialize_meta_block()<0)
             return NULL;
+
+        meta_block_rcu = read_ram_metablk();
+        change_state_mount(meta_block_rcu);
+
+        printk("%s: singlefilefs is succesfully mounted on from device %s. Mount: %d\n",MOD_NAME,dev_name,meta_block_rcu->mount_state);
+
     }
 
 

@@ -13,6 +13,10 @@
 #include "lib/include/singlefilefs.h"
 #include "../core-RCU/lib/include/rcu.h"
 
+#define POS_EPOCH 1
+#define POS_BLOCK 0
+
+
 
 /**
  * La funzione di lettura scorre tutti i blocchi validi in ordine di consegna.
@@ -26,44 +30,48 @@ ssize_t onefilefs_read(struct file * filp, char __user * buf, size_t len, loff_t
      
     int ret;
     int temp_block_to_read;
-    int* actual_block;
     void* temp;
     struct block *temp_block;
     struct meta_block_rcu *meta_block_rcu;
     struct block_device *block_device;
     struct buffer_head *bh = NULL;
+    int* private_info;
     int epoch;
 
-    check_mount();
+    meta_block_rcu = read_ram_metablk();
+    check_mount(meta_block_rcu);
 
     block_device = get_block_device_AfterMount();
-    meta_block_rcu= read_ram_metablk();
-    actual_block = (int*)filp->private_data;
+    private_info = (int*)filp->private_data;
 
-    //Segnalo presenza di un lettore ad eventuali scrittori
-    epoch = rcu_read_lock();
     
     //Alla prima invocazione filp->private_data sarà null
     if(filp->private_data == NULL){
 
-        filp->private_data = kmalloc(sizeof(int),GFP_KERNEL);
+        filp->private_data = kmalloc(sizeof(int)*2,GFP_KERNEL);
+
+        private_info = (int*)filp->private_data;
+
+        //Segnalo presenza di un lettore ad eventuali scrittori
+        epoch = rcu_lock_read();
 
         //devo far partire la scorrimento dei blocchi dal primo blocco valido
-        actual_block = (int*)filp->private_data;
-        *actual_block = meta_block_rcu->firstBlock;
+        private_info[POS_BLOCK] = meta_block_rcu->firstBlock;
+        private_info[POS_EPOCH] = epoch;
+
     }
 
     //Alle successive invocazioni verifico se ho letto tutti i dati a disposizione
-    if(*actual_block < 0 || *off>=len){
-        rcu_read_unlock(epoch);
+    if( private_info[POS_BLOCK] < 0 || *off>=len){
+        rcu_unlock_read(private_info[POS_EPOCH]);
         return 0;
     }
     
     /* 
-     * actual_block indica il blocco da cui partire la lettura. Può ossere il primo blocco valido del device
+     * private_info[POS_BLOCK] indica il blocco da cui partire la lettura. Può ossere il primo blocco valido del device
      * oppure un qualsiasi altro blocco se la funzione è invocata più di una volta.
      */
-    temp_block_to_read = *actual_block;
+    temp_block_to_read = private_info[POS_BLOCK];
 
     //Scorro la lista di tutti i blocchi validi fin quando o non li leggo tutti o ho terminato lo spazio nel buffer utente
     while (temp_block_to_read != BLOCK_ERROR && *off<len){
@@ -72,10 +80,10 @@ ssize_t onefilefs_read(struct file * filp, char __user * buf, size_t len, loff_t
             return 0;
 
         bh = (struct buffer_head *)sb_bread(block_device->bd_super, temp_block_to_read);
-        check_bh_and_unlock(bh);
+        check_bh_and_unlock(bh,epoch);
 
         //acquisisco riferimento del blocco temporaneo
-        temp = (void*) rcu_dereference(bh->b_data);
+        temp = (void*) (bh->b_data);
         temp_block = (struct block*) (void**)temp;
 
         if (temp != NULL){ 
@@ -91,7 +99,7 @@ ssize_t onefilefs_read(struct file * filp, char __user * buf, size_t len, loff_t
 
         }else{
 
-            rcu_read_unlock(epoch);
+            rcu_unlock_read(private_info[POS_EPOCH]);
             brelse(bh);
             return -1;
 
@@ -99,7 +107,7 @@ ssize_t onefilefs_read(struct file * filp, char __user * buf, size_t len, loff_t
     
     }
 
-    *actual_block=temp_block_to_read;
+    private_info[POS_BLOCK]=temp_block_to_read;
 
     return *off;
         
@@ -171,9 +179,9 @@ struct dentry *onefilefs_lookup(struct inode *parent_inode, struct dentry *child
 
 int onefilefs_open(struct inode *inode, struct file *filp){
 	
-    check_mount();
+    check_mount(read_ram_metablk());
 
-	// incremento usage count
+    increment_active_threads();
 	try_module_get(THIS_MODULE);
 
     //non è possibile effettuare operazioni di scrittura
@@ -186,9 +194,7 @@ int onefilefs_open(struct inode *inode, struct file *filp){
 
 int onefilefs_release(struct inode *inode, struct file *filp){
 
-	check_mount();
-	
-	// decremento usage count
+    decrement_active_threads();
 	module_put(THIS_MODULE);
 
 	return 0;

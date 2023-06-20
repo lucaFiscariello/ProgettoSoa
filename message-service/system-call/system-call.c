@@ -41,7 +41,8 @@ __SYSCALL_DEFINEx(2, _put_data, char*, source,size_t, size){
         int ret;
         char* kernel_buffer;
         
-        check_mount();
+        check_mount(read_ram_metablk());
+        increment_active_threads();
 
         kernel_buffer = kmalloc(size,GFP_KERNEL);
         
@@ -49,6 +50,8 @@ __SYSCALL_DEFINEx(2, _put_data, char*, source,size_t, size){
            return COPYERROR;
         
         ret = write_rcu(kernel_buffer,size);
+        decrement_active_threads();
+
 	return  ret;
 	
 }
@@ -58,14 +61,18 @@ __SYSCALL_DEFINEx(3, _get_data, int, offset, char*, source,size_t, size){
 	int ret;
         struct block* block ;
         
-        check_mount();
+        check_mount(read_ram_metablk());
 
+        increment_active_threads();
         block = kmalloc(DIM_BLOCK,GFP_KERNEL);    
         ret = read_block_rcu(offset,block);
+        decrement_active_threads();
+
         check_return_read(ret);
         
         if(copy_to_user(source, block->data, size))
            return COPYERROR;
+
 
 	return ret;
 	
@@ -73,8 +80,15 @@ __SYSCALL_DEFINEx(3, _get_data, int, offset, char*, source,size_t, size){
 
 __SYSCALL_DEFINEx(1, _invalidate_data, int, offset){
 
-        check_mount();
-	return invalidate_rcu(offset);
+        int ret;
+
+        check_mount(read_ram_metablk());
+
+        increment_active_threads();
+        ret = invalidate_rcu(offset);
+        decrement_active_threads();
+
+	return ret;
 	
 }
 
