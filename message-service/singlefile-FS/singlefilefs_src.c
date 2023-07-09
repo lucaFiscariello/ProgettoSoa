@@ -89,10 +89,12 @@ static void singlefilefs_kill_superblock(struct super_block *s) {
     struct meta_block_rcu *meta_block_rcu;
     meta_block_rcu = read_ram_metablk();
 
-    wait_umount();
-    
+    // Non permetto a nuovi thread di iniziare operazioni di lettura/scritttura/invalidazione
     change_state_mount(meta_block_rcu);
     flush_device_metablk();
+
+    //Attendo che i thread pendenti terminino le proprie operazioni
+    wait_umount();
 
     set_block_device_onUmount();
     kill_block_super(s);
@@ -108,6 +110,7 @@ struct dentry *singlefilefs_mount(struct file_system_type *fs_type, int flags, c
     struct dentry *ret;
     struct meta_block_rcu *meta_block_rcu;
     
+    //un solo montaggio per volta può avvenire
     try_lock_mount(lock_mount);
 
     ret = mount_bdev(fs_type, flags, dev_name, data, singlefilefs_fill_super);

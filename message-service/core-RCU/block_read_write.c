@@ -76,7 +76,6 @@ int write(int block_to_write,struct block* block){
     
     if (bh->b_data != NULL){
 
-        // Memorizzio il riferimento ai dati in una variabile temporanea. In questo modo alla fine del greece period è possibile deallocarla
         update_epoch();
         temp = bh->b_data;
         bh->b_data=(void *) block;

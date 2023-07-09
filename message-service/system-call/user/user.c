@@ -58,7 +58,7 @@ int main(int argc, char** argv){
 	printf("Scrittura blocco ad offset %d\n",offset_4);
 
 	get_data(offset_1,block_read_1,strlen(block_1));
-    	get_data(offset_2,block_read_2,strlen(block_2));
+    get_data(offset_2,block_read_2,strlen(block_2));
 
 	printf("Letto il blocco ad offset %d non valido : %s\n",offset_1,block_read_1);
 	printf("Letto il blocco ad offset %d valido: %s\n",offset_2,block_read_2);

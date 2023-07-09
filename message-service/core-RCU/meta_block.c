@@ -214,13 +214,13 @@ void wait_umount(void){
 
 
 /**
- * Attraverso questa funzione un lettore può comunicare a uno scrittore l'intenzione di avviare una scrittura.
+ * Attraverso questa funzione un lettore può comunicare a uno scrittore l'intenzione di avviare una lettura.
  * Per farlo è necessario incrementare atomicamente un contatore che dipende dall'epoca in cui si trova il lettore.
 */
 int rcu_lock_read(){
     int epoch = meta_block_rcu->epoch;
+    asm volatile("mfence");
      __sync_fetch_and_add(&meta_block_rcu->standing[epoch],1);
-
     return epoch;
 }
 
@@ -249,7 +249,6 @@ void update_epoch(){
 void  rcu_synchronize(){
     int epoch = meta_block_rcu->epoch;
     int last_epoch = epoch ^ MASK;
-
     wait_event_interruptible(wqueue,meta_block_rcu->standing[last_epoch]== 0);
 }
 

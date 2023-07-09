@@ -48,10 +48,10 @@ user:
 clean-for-test:
 	make umount-all
 	rm -rf message-service/singlefile-FS/image
-	make mount-all
 	
 test:
 	make clean-for-test
+	make mount-all
 	./message-service/system-call/user/test $(shell sudo cat /sys/module/the_message_service/parameters/PUT) $(shell sudo cat /sys/module/the_message_service/parameters/GET) $(shell sudo cat /sys/module/the_message_service/parameters/INVALIDATE) $(num_block)
 
 print-blocks:

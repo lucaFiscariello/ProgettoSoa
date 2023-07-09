@@ -22,7 +22,7 @@
 #define MASK 0x0000000000000001
 
 #define check_mount(metablock)\
-    if(!__sync_fetch_and_add(&metablock->mount_state,0))\
+    if( !__sync_fetch_and_add(&metablock->mount_state,0))\
         return ENODEV;
 
 #define change_state_mount(meta_block) ( __sync_fetch_and_xor(&meta_block->mount_state,MASK) )

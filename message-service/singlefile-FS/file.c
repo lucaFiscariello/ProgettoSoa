@@ -15,6 +15,9 @@
 
 #define POS_EPOCH 1
 #define POS_BLOCK 0
+#define POS_COMPLETE 2
+#define COMPLETE 1
+#define NO_COMPLETE 0
 
 
 
@@ -37,6 +40,19 @@ ssize_t onefilefs_read(struct file * filp, char __user * buf, size_t len, loff_t
     struct buffer_head *bh = NULL;
     int* private_info;
     int epoch;
+    struct path file_path;
+    struct dentry *dentry;
+    const char *file_name;
+
+    file_path = filp->f_path;
+    dentry = file_path.dentry;
+    file_name = dentry->d_name.name;
+
+    printk("read file %s",file_name);
+
+    //Non viene gestita la lettura di altri file
+    if(strcmp(file_name,UNIQUE_FILE_NAME))
+        return 0;
 
     meta_block_rcu = read_ram_metablk();
     check_mount(meta_block_rcu);
@@ -44,11 +60,10 @@ ssize_t onefilefs_read(struct file * filp, char __user * buf, size_t len, loff_t
     block_device = get_block_device_AfterMount();
     private_info = (int*)filp->private_data;
 
-    
     //Alla prima invocazione filp->private_data sarà null
     if(filp->private_data == NULL){
 
-        filp->private_data = kmalloc(sizeof(int)*2,GFP_KERNEL);
+        filp->private_data = kmalloc(sizeof(int)*3,GFP_KERNEL);
 
         private_info = (int*)filp->private_data;
 
@@ -57,16 +72,17 @@ ssize_t onefilefs_read(struct file * filp, char __user * buf, size_t len, loff_t
 
         //devo far partire la scorrimento dei blocchi dal primo blocco valido
         private_info[POS_BLOCK] = meta_block_rcu->firstBlock;
-        private_info[POS_EPOCH] = epoch;
+        private_info[POS_EPOCH] = epoch; 
+        private_info[POS_COMPLETE] = NO_COMPLETE; 
 
     }
 
     //Alle successive invocazioni verifico se ho letto tutti i dati a disposizione
-    if( private_info[POS_BLOCK] < 0 || *off>=len){
-        rcu_unlock_read(private_info[POS_EPOCH]);
+    if( private_info[POS_COMPLETE] == COMPLETE ){
         return 0;
     }
-    
+
+
     /* 
      * private_info[POS_BLOCK] indica il blocco da cui partire la lettura. Può ossere il primo blocco valido del device
      * oppure un qualsiasi altro blocco se la funzione è invocata più di una volta.
@@ -76,8 +92,10 @@ ssize_t onefilefs_read(struct file * filp, char __user * buf, size_t len, loff_t
     //Scorro la lista di tutti i blocchi validi fin quando o non li leggo tutti o ho terminato lo spazio nel buffer utente
     while (temp_block_to_read != BLOCK_ERROR && *off<len){
 
-        if(temp_block_to_read<=POS_META_BLOCK)
+        if(temp_block_to_read<=POS_META_BLOCK){
+            rcu_unlock_read(private_info[POS_EPOCH]);
             return 0;
+        }
 
         bh = (struct buffer_head *)sb_bread(block_device->bd_super, temp_block_to_read);
         check_bh_and_unlock(bh,epoch);
@@ -108,6 +126,12 @@ ssize_t onefilefs_read(struct file * filp, char __user * buf, size_t len, loff_t
     }
 
     private_info[POS_BLOCK]=temp_block_to_read;
+
+    //Memorizzo nei dati privati se ho terminato la lettura
+    if( private_info[POS_BLOCK] <= POS_META_BLOCK || *off>=len ){
+        rcu_unlock_read(private_info[POS_EPOCH]);
+        private_info[POS_COMPLETE] = COMPLETE;
+    }
 
     return *off;
         
