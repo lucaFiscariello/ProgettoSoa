@@ -120,8 +120,11 @@ struct dentry *singlefilefs_mount(struct file_system_type *fs_type, int flags, c
     else{
         
         set_block_device_onMount(dev_name);
-        if(inizialize_meta_block()<0)
+        if(inizialize_meta_block()<0){
+            unlock(lock_mount);
             return NULL;
+        }
+            
 
         meta_block_rcu = read_ram_metablk();
         change_state_mount(meta_block_rcu);
