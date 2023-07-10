@@ -15,7 +15,7 @@
 
 /**
  * Tale funzione si occupa di leggere un blocco dal device all'offset "block_to_read" e memorizzarlo nella struttura "block".
- * La lettura sfrutta API Linux per implementare rcu. In particolare:
+ * La lettura sfrutta API per implementare rcu. In particolare:
  *  - rcu_read_lock : è un lock per i soli scrittori. I lettori possono concorrere senza problemi
  *  - rcu_dereference : è una macro che implementa un'assegnazione atomica attraverso ottimizzazioni al compilatore per l'accesso in memoria
  *  - rcu_read_unlock : libera eventuali scrittori in attesa.
@@ -57,8 +57,8 @@ int read( int block_to_read,struct block* block){
 
 
 /**
- * Questa funzione implementa la scrittura di un blocco nel device. Sfrutta API Linux rcu.
- * In particolare le api Linux utilizzate sono:
+ * Questa funzione implementa la scrittura di un blocco nel device.
+ * In particolare le funzioni utilizzate sono:
  *  - rcu_assign_pointer :  è una macro che implementa un'assegnazione atomica attraverso ottimizzazioni al compilatore per l'accesso in memoria
  *  - synchronize_rcu: attende la fine del greece period
  * Terminata l'attesa del greece period è possibile eliminare il buffer precedente in quanto nessun lettore lo sta più utilizzando.
@@ -81,7 +81,7 @@ int write(int block_to_write,struct block* block){
 
         temp = bh->b_data;
         __atomic_load(&block, &bh->b_data, __ATOMIC_SEQ_CST);
-        
+
         rcu_synchronize();
         kfree(temp);
 
