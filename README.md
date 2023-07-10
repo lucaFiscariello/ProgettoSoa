@@ -146,7 +146,7 @@ La soluzione proposta ha le seguenti caratteristiche:
 - I dati dei blocchi del device sono acceduti esclusivamente tramite buffer head, non si mantengono altre strutture dati in memoria.
 - L'unica struttura dati aggiuntiva è una linked list dei nodi non validi. La struttura è acceduta da uno scrittore alla volta e da nessun lettore, per cui non si verificano mai problemi di concorrenza.
 - Le operazioni di lettura, scrittura e invalidazione hanno tutte complessità costante.
-- La concorrenza tra lettori e scrittore e gestita tramime rcu implementato attreverso le api offerte da linux.
+- La concorrenza tra lettori e scrittore è gestita tramime rcu implementata utilizzando waitqueue e operazioni atomiche.
 
 
 Alcune limitazioni:
@@ -187,7 +187,7 @@ Volendo è possibile visionare il contenuto di tutto il device tramite il seguen
 ```
 
 #### Test
-Dopo aver eseguito il testo compariranno sulla console dei messaggi che comunicheranno se il test è andato a buon fine oppure no.
+Dopo aver eseguito il codice seguente compariranno sulla console dei messaggi che comunicheranno se il test è andato a buon fine oppure no.
 
 ```c 
 
