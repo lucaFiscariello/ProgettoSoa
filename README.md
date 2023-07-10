@@ -60,41 +60,45 @@ I campi da cui è composta sono :
 L'idea è quella di sfruttare i metadati di ogni blocco per creare una lista doppiamente collegata di tutti i nodi validi. In questo modo l'operazione di lettura di tutti i blocchi seguendo l'ordine di consegna diventa banale, e consiste solo nello scorrere la lista collegata. Tale lista deve essere doppiamente collegata a causa delle operazioni di invalidazioni. E' importante osservare come i blocchi vengono acceduti in lettura esclusivamente usando *buffer head* e non è presente una duplicazione del contenuto dei blocchi in ram.
 
 ## Block_read_write
-In questa sezione verrà chiarito come sono state implementate le operazioni primitive di lettura e scrittura nel sotto-modulo [block_read_write](https://github.com/lucaFiscariello/ProgettoSoa/blob/987e2bddcca109c31a2627071eac5f593a7441e8/message-service/core-RCU/block_read_write.c). Le operazioni di lettura e scrittura si basano sulle api linux rcu e utilizzano quindi il meccanismo del read copy update. I lettori possono effettuare operazioni di lettura in concorrenza senza problemi, mentre è possibile avere attivo un solo scrittore per volta il quale dovrà acquisire un lock. In particolare gli scrittori per srivere un nuovo blocco devono creare un nuovo buffer contenente i dati e i metadati del blocco e in maniera atomica faranno puntare questi dati dal buffer head. L'immagine seguente mostra un esempio di come avviene un operazione di scrittura di un nuovo blocco. In giallo è mostrato il nuovo blocco, in rosso un blocco non valido e in verde i blocchi validi mantenuti in memoria. 
+In questa sezione verrà chiarito come sono state implementate le operazioni primitive di lettura e scrittura nel sotto-modulo [block_read_write](https://github.com/lucaFiscariello/ProgettoSoa/blob/987e2bddcca109c31a2627071eac5f593a7441e8/message-service/core-RCU/block_read_write.c). Le operazioni di lettura e scrittura si basano sul meccanismo del read copy update. I lettori possono effettuare operazioni di lettura in concorrenza senza problemi, mentre è possibile avere attivo un solo scrittore per volta il quale dovrà acquisire un lock. In particolare gli scrittori per srivere un nuovo blocco devono creare un nuovo buffer contenente i dati e i metadati del blocco e in maniera atomica faranno puntare questi dati dal buffer head. L'immagine seguente mostra un esempio di come avviene un operazione di scrittura di un nuovo blocco. In giallo è mostrato il nuovo blocco, in rosso un blocco non valido e in verde i blocchi validi mantenuti in memoria. 
 
 ![soaDiagramma drawio (9)](https://github.com/lucaFiscariello/ProgettoSoa/assets/80633764/173708a9-9eab-4800-a737-387946f32b69)
 
 
 #### Read
 L'operazione di [read primitiva](https://github.com/lucaFiscariello/ProgettoSoa/blob/987e2bddcca109c31a2627071eac5f593a7441e8/message-service/core-RCU/block_read_write.c#LL23C1-L53C2) permette di leggere sia i dati che i metadati di un blocco nel device ad un offset dato. La read è implementata in modo che i lettori possano concorrere tra di loro senza problemi, eventuali scrittori vengono invece notificati. Di seguito è riportato il codice del lettore il quale sfrutta alcune API linux rcu:
-- **rcu_read_lock()** per avvisare eventuali scrittori che un lettore sta avviando una lettura. Tale API non blocca altri lettori.
-- **rcu_dereference()** è una semplice assegnazione. Assegna il contenuto di *bh->b_data* in *temp*.In questo pezzo di codice *bh* è il riferimento al buffer head. Tale assegnazione sfrutta però direttive e ottimizzazioni del 
-compilatore in modo da garantire un ordinamento degli accessi in memoria tra scrittori e lettori.
-- **rcu_read_unlock()** libera eventuali scrittori in attesa.
+- **rcu_lock_read()** per avvisare eventuali scrittori che un lettore sta avviando una lettura. Tale API non blocca altri lettori.
+- **__atomic_load()** è una semplice assegnazione. Assegna il contenuto di *bh->b_data* in *temp*.In questo pezzo di codice *bh* è il riferimento al buffer head. Tale assegnazione sfrutta però direttive del compilatore in modo da garantire un accesso atomico ai dati.
+- **rcu_unlock_read()** libera eventuali scrittori in attesa.
 Quando il lettore ha acquisito in modo atomico il riferimento al buffer contenenti i dati di interesse può copiarlo in un buffer locale.
 
 ```c 
  
- rcu_read_lock();
- temp = (void*) rcu_dereference(bh->b_data);
- memcpy( block,temp, DIM_BLOCK);
- rcu_read_unlock(); 
+        epoch = rcu_lock_read();
+    
+        __atomic_load(&bh->b_data, &temp, __ATOMIC_SEQ_CST);
+        memcpy( block,temp, DIM_BLOCK);
+
+        rcu_unlock_read(epoch); 
+
  
 ```
 
 
 #### Write
 L'operazione di [scrittura primitiva](https://github.com/lucaFiscariello/ProgettoSoa/blob/987e2bddcca109c31a2627071eac5f593a7441e8/message-service/core-RCU/block_read_write.c#LL64C1-L93C2) permette di scrivere un blocco di dati e metadati in blocco ad offset dato. Utilizza le api duali rispetto ai lettori. Di seguito è riportato un pezzo di codice che sfrutta :
-- **rcu_assign_pointer()** che è simile a *rcu_dereference()*. La documentazione del kernel linux consiglia tuttavia di utilizzare rcu_assign_pointer per i lettori e rcu_dereference per gli scrittori.
-- **synchronize_rcu()** attende che scada il greece period.
+- **rcu_synchronize()** attende che scada il greece period.
 Una volta scaduto il greece period il thread scrittore ha la certezza che il buffer puntato da temp non venga utilizzato da nessun lettore. Pertanto può essere deallocato. Tutto il meccanismo è basato su creazione di nuovi buffer e swap atomico dei puntatori.
 
 ```c 
 
-  temp = bh->b_data;
-  rcu_assign_pointer(bh->b_data,(void *) block);
-  synchronize_rcu();
-  kfree(temp);
+        update_epoch();
+
+        temp = bh->b_data;
+        __atomic_load(&block, &bh->b_data, __ATOMIC_SEQ_CST);
+        
+        rcu_synchronize();
+        kfree(temp);
   
 ```
 
@@ -146,7 +150,7 @@ La soluzione proposta ha le seguenti caratteristiche:
 - I dati dei blocchi del device sono acceduti esclusivamente tramite buffer head, non si mantengono altre strutture dati in memoria.
 - L'unica struttura dati aggiuntiva è una linked list dei nodi non validi. La struttura è acceduta da uno scrittore alla volta e da nessun lettore, per cui non si verificano mai problemi di concorrenza.
 - Le operazioni di lettura, scrittura e invalidazione hanno tutte complessità costante.
-- La concorrenza tra lettori e scrittore è gestita tramime rcu implementata utilizzando waitqueue e operazioni atomiche.
+- La concorrenza tra lettori e scrittore è gestita tramime rcu implementata utilizzando wait queue e operazioni atomiche.
 
 
 Alcune limitazioni:
