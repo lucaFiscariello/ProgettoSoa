@@ -85,9 +85,10 @@ int flush_device_metablk(){
 }
 
 /**
- * Dualmente al flush del meta blocco nel device , questa funzione permette recuperare il riferimento del metablocco tramite buffer head e salvare 
+ * Questa funzione permette recuperare il riferimento del metablocco tramite buffer head e salvare 
  * una copia in ram. I campi del meta blocco sono accessibili sia in scrittura che in lettura. Eventuali modifiche devono essere opportunamente
- * riportate sul device attraverso la funzione "flush_device_metablk".
+ * riportate sul device. Se il block device driver non è settato viene restiruito un metablocco non inizializzato. I campi non
+ * inizializzati sono interpretati dai thread come una situazione in cui non è montato nessun device.
 */
 struct meta_block_rcu* read_device_metablk(){
 
@@ -95,6 +96,14 @@ struct meta_block_rcu* read_device_metablk(){
     struct invalid_block * new_invalid_block;
     int all_block;
 
+    //se il block device driver non è settato, restituisco un metablocco vuoto
+    if(block_device==NULL){
+        kfree(meta_block_rcu);
+        meta_block_rcu = kmalloc(sizeof(struct meta_block_rcu),GFP_KERNEL);
+        return meta_block_rcu;
+    }
+         
+    
     bh = (struct buffer_head *)sb_bread(block_device->bd_super, POS_META_BLOCK);
     if(!bh) return NULL;
 
@@ -186,13 +195,13 @@ int decrement_dim_file(int bytes){
 
 
 void set_block_device_onMount(const char* devname){
-    block_device= blkdev_get_by_path(devname, FMODE_READ|FMODE_WRITE, NULL);
-    asm volatile("mfence");
+    struct block_device * block_device_new = blkdev_get_by_path(devname, FMODE_READ|FMODE_WRITE, NULL);
+    __atomic_store(&block_device, &block_device_new, __ATOMIC_SEQ_CST);
 }
 
 void set_block_device_onUmount(){
-    block_device = NULL;
-    asm volatile("mfence");
+   struct block_device * block_device_new = NULL;
+    __atomic_store(&block_device, &block_device_new, __ATOMIC_SEQ_CST);
 }
 
 struct block_device * get_block_device_AfterMount(void){
@@ -218,9 +227,9 @@ void wait_umount(void){
  * Per farlo è necessario incrementare atomicamente un contatore che dipende dall'epoca in cui si trova il lettore.
 */
 int rcu_lock_read(){
-    int epoch = meta_block_rcu->epoch;
-    asm volatile("mfence");
-     __sync_fetch_and_add(&meta_block_rcu->standing[epoch],1);
+    int epoch;
+    __atomic_load(&meta_block_rcu->epoch, &epoch, __ATOMIC_SEQ_CST);
+    __sync_fetch_and_add(&meta_block_rcu->standing[epoch],1);
     return epoch;
 }
 
@@ -247,8 +256,13 @@ void update_epoch(){
  * Implementa l'attesa del greece period di uno scrittore. Il TCB dello scrittore è posto in una waitqueue.
 */
 void  rcu_synchronize(){
-    int epoch = meta_block_rcu->epoch;
-    int last_epoch = epoch ^ MASK;
+    int epoch;
+    int last_epoch;
+
+    __atomic_load(&meta_block_rcu->epoch, &epoch, __ATOMIC_SEQ_CST);
+
+    last_epoch = epoch ^ MASK;
+    
     wait_event_interruptible(wqueue,meta_block_rcu->standing[last_epoch]== 0);
 }
 

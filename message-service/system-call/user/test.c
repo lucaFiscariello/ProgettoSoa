@@ -20,9 +20,9 @@
 #define NUM_WRITER 1
 #define NUM_READER 20
 #define NUM_INVALIDATOR 5
-#define NUM_OP_W 1		//Numero di scritture tentate da ogni writer
+#define NUM_OP_W 5		//Numero di scritture tentate da ogni writer
 #define NUM_OP_R 5		//Numero di letture tentate da ogni reader
-#define NUM_OP_I 0	//Numero di invalidazioni tentate da ogni invalidatore
+#define NUM_OP_I 5	//Numero di invalidazioni tentate da ogni invalidatore
 #define DIM_MESSAGE 100
 
 #define set_color_red() (printf("\033[0;31m"))

@@ -53,6 +53,14 @@ struct onefilefs_sb_info {
 	char padding[ (4 * 1024) - (5 * sizeof(uint64_t))];
 };
 
+
+struct private_info {
+	int current_block;
+	int epoch;
+	int complete;
+};
+
+
 // file.c
 extern const struct inode_operations onefilefs_inode_ops;
 extern const struct file_operations onefilefs_file_operations;

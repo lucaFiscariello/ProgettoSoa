@@ -13,13 +13,8 @@
 #include "lib/include/singlefilefs.h"
 #include "../core-RCU/lib/include/rcu.h"
 
-#define POS_EPOCH 1
-#define POS_BLOCK 0
-#define POS_COMPLETE 2
 #define COMPLETE 1
 #define NO_COMPLETE 0
-
-
 
 /**
  * La funzione di lettura scorre tutti i blocchi validi in ordine di consegna.
@@ -38,67 +33,50 @@ ssize_t onefilefs_read(struct file * filp, char __user * buf, size_t len, loff_t
     struct meta_block_rcu *meta_block_rcu;
     struct block_device *block_device;
     struct buffer_head *bh = NULL;
-    int* private_info;
-    int epoch;
-    struct path file_path;
-    struct dentry *dentry;
-    const char *file_name;
-
-    file_path = filp->f_path;
-    dentry = file_path.dentry;
-    file_name = dentry->d_name.name;
-
-    printk("read file %s",file_name);
-
-    //Non viene gestita la lettura di altri file
-    if(strcmp(file_name,UNIQUE_FILE_NAME))
-        return 0;
+    struct private_info* private_info;
+  
 
     meta_block_rcu = read_ram_metablk();
     check_mount(meta_block_rcu);
 
     block_device = get_block_device_AfterMount();
-    private_info = (int*)filp->private_data;
+    private_info = (struct private_info*)filp->private_data;
 
     //Alla prima invocazione filp->private_data sarà null
     if(filp->private_data == NULL){
 
-        filp->private_data = kmalloc(sizeof(int)*3,GFP_KERNEL);
+        filp->private_data = kmalloc(sizeof(struct private_info),GFP_KERNEL);
+        private_info = (struct private_info*)filp->private_data;
 
-        private_info = (int*)filp->private_data;
-
-        //Segnalo presenza di un lettore ad eventuali scrittori
-        epoch = rcu_lock_read();
-
-        //devo far partire la scorrimento dei blocchi dal primo blocco valido
-        private_info[POS_BLOCK] = meta_block_rcu->firstBlock;
-        private_info[POS_EPOCH] = epoch; 
-        private_info[POS_COMPLETE] = NO_COMPLETE; 
+        //mantengo alcune informazioni di sessione
+        private_info->current_block= meta_block_rcu->firstBlock;
+        private_info->epoch = rcu_lock_read();
+        private_info->complete = NO_COMPLETE; 
 
     }
 
     //Alle successive invocazioni verifico se ho letto tutti i dati a disposizione
-    if( private_info[POS_COMPLETE] == COMPLETE ){
+    if( private_info->complete == COMPLETE ){
         return 0;
     }
 
 
     /* 
-     * private_info[POS_BLOCK] indica il blocco da cui partire la lettura. Può ossere il primo blocco valido del device
+     * private_info->current_block indica il blocco da cui partire la lettura. Può ossere il primo blocco valido del device
      * oppure un qualsiasi altro blocco se la funzione è invocata più di una volta.
      */
-    temp_block_to_read = private_info[POS_BLOCK];
+    temp_block_to_read = private_info->current_block;
 
     //Scorro la lista di tutti i blocchi validi fin quando o non li leggo tutti o ho terminato lo spazio nel buffer utente
     while (temp_block_to_read != BLOCK_ERROR && *off<len){
 
         if(temp_block_to_read<=POS_META_BLOCK){
-            rcu_unlock_read(private_info[POS_EPOCH]);
+            rcu_unlock_read(private_info->epoch);
             return 0;
         }
 
         bh = (struct buffer_head *)sb_bread(block_device->bd_super, temp_block_to_read);
-        check_bh_and_unlock(bh,epoch);
+        check_bh_and_unlock(bh,private_info->epoch);
 
         //acquisisco riferimento del blocco temporaneo
         temp = (void*) (bh->b_data);
@@ -117,7 +95,7 @@ ssize_t onefilefs_read(struct file * filp, char __user * buf, size_t len, loff_t
 
         }else{
 
-            rcu_unlock_read(private_info[POS_EPOCH]);
+            rcu_unlock_read(private_info->epoch);
             brelse(bh);
             return -1;
 
@@ -125,12 +103,12 @@ ssize_t onefilefs_read(struct file * filp, char __user * buf, size_t len, loff_t
     
     }
 
-    private_info[POS_BLOCK]=temp_block_to_read;
+    private_info->current_block=temp_block_to_read;
 
-    //Memorizzo nei dati privati se ho terminato la lettura
-    if( private_info[POS_BLOCK] <= POS_META_BLOCK || *off>=len ){
-        rcu_unlock_read(private_info[POS_EPOCH]);
-        private_info[POS_COMPLETE] = COMPLETE;
+    //Se ho completato la lettura lo memorizzo nei dati privati
+    if( private_info->current_block <= POS_META_BLOCK || *off>=len ){
+        rcu_unlock_read(private_info->epoch);
+        private_info->complete= COMPLETE;
     }
 
     return *off;
