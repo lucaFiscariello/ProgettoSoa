@@ -13,6 +13,7 @@
 #include <linux/blkdev.h>
 #include <linux/string.h>
 #include <linux/kernel.h>
+#include <linux/module.h>
 
 #include "lib/include/meta_block.h"
 
@@ -95,6 +96,7 @@ struct meta_block_rcu* read_device_metablk(){
     struct buffer_head *bh = NULL;
     struct invalid_block * new_invalid_block;
     int all_block;
+    int blok_id=0;
 
     //se il block device driver non è settato, restituisco un metablocco vuoto
     if(block_device==NULL){
@@ -114,7 +116,7 @@ struct meta_block_rcu* read_device_metablk(){
         all_block = meta_block_rcu->blocksNumber;
 
         //Scorro tutta la bitmap mantenuta dal metablocco
-        for(int blok_id=0 ; blok_id<all_block; blok_id++){
+        for(blok_id=0 ; blok_id<all_block; blok_id++){
 
             //Se trovo un blocco invalidato creo un nuovo nodo nella linked list dei blocchi attualmente invalidati
             if(is_invalid(blok_id,meta_block_rcu)){
